@@ -67,14 +67,21 @@ class ESOFacility(BaseRoboticObservationFacility):
         pass
 
     def get_observing_sites(self):
-        # TODO return sane list of ESO observing sites
+        # see https://www.eso.org/sci/facilities/paranal/astroclimate/site.html#GeoInfo
+        # I don't see an API for this info, so it's hardcoded
         return {
-            'XSHOOTER': {
-                'sitecode': 'xshooter',
-                'latitude': -24.62733,
-                'longitude': -70.40417,
-                'elevation': 2635,  # meters
-            }
+            'PARANAL': {
+                'sitecode': 'paranal',
+                'latitude': -24.62733,   # 24 degrees 40' S
+                'longitude': -70.40417,  # 70 degrees 25' W
+                'elevation': 2635.43,    # meters
+            },
+            'LA_SILLA': {
+                'sitecode': 'lasilla',
+                'latitude': -29.25667,
+                'longitude': -70.73194,
+                'elevation': 2400.0,  # meters
+            },
         }
 
     def get_terminal_observing_states(self):
