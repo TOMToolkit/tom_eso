@@ -10,13 +10,17 @@ from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObs
 from tom_targets.models import Target
 
 from tom_eso import __version__
+from tom_eso.eso_api import ESOAPI
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
 class ESOObservationForm(BaseRoboticObservationForm):
-    pass
+
+    # first define the form fields, the define the __init__ below
+
     p1_observing_run = forms.ChoiceField(
         label='Observing Run',
         # TODO: populate from ESO API
@@ -24,6 +28,15 @@ class ESOObservationForm(BaseRoboticObservationForm):
                  ('choice_value_2', 'choice_label_2')],
         required=False,
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eso = ESOAPI()
+
+        logger.debug(f'ESOObservationForm.__init__() fields: {self.fields}')
+        self.fields['p1_observing_run'].choices = self.eso.observing_run_choices()
+
+    # now the layout
 
     def layout(self):
         layout = Layout(
@@ -42,6 +55,7 @@ class ESOFacility(BaseRoboticObservationFacility):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.eso = ESOAPI()
 
     def get_facility_context_data(self, **kwargs):
         facility_context_data = super().get_facility_context_data(**kwargs)
