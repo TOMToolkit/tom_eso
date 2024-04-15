@@ -74,9 +74,13 @@ class ESOFacility(BaseRoboticObservationFacility):
         return facility_context_data
 
     def get_form(self, observation_type):
-        logger.debug(f'ESOFacility.get_form() called for observation_type={observation_type}')
-        return ESOObservationForm
-        #return self.observation_forms.get(observation_type, ESOObservationForm)
+        """Return the form class for the given observation type.
+
+        Uses the observation_forms class varialble dictionary to map observation types to form classes.
+        If the obsevation type is not found, return the ESOboservationForm class
+        """
+        # use get() to return the default form class if the observation type is not found
+        return self.observation_forms.get(observation_type, ESOObservationForm)
 
     def data_products(self):
         pass
