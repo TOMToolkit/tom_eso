@@ -16,36 +16,44 @@ logger.setLevel(logging.DEBUG)
 
 class ESOObservationForm(BaseRoboticObservationForm):
 
-    # first define the form fields, the define the __init__ below
+    # 1. define the form fields,
+    # 2. the define the __init__ below
+    # 3. then the layout
+    # 4. implement other Fomrm methods
+
+    # 1. Form fields
 
     p1_observing_run = forms.ChoiceField(
         label='Observing Run',
-        # TODO: populate from ESO API
-        choices=[('choice_value_1', 'choice_label_1'),
-                 ('choice_value_2', 'choice_label_2')],
+        # choices set dynamically in __init__() from ESOAPI
         required=False,
     )
+
+    # 2. __init__()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.eso = ESOAPI()
 
-        logger.debug(f'ESOObservationForm.__init__() fields: {self.fields}')
+        # set ChoiceField choices dynamically (at runtime) from ESOAPI
         self.fields['p1_observing_run'].choices = self.eso.observing_run_choices()
 
-    # now the layout
+    # 3. now the layout
 
     def layout(self):
         layout = Layout(
-            'p1_observing_run'
+            'p1_observing_run',
+            HTML('<hr><p>More Field wigdets here</p><hr>'),
         )
         return layout
+
+    # 4. implement other Form methods
 
 
 class ESOFacility(BaseRoboticObservationFacility):
     name = 'ESO'
 
-    # TODO: try this, too: observation_form = ESOObservationForm
+    # key is the observation type, value is the form class
     observation_forms = {
         'XSHOOTER': ESOObservationForm
     }

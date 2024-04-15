@@ -39,6 +39,7 @@ class ESOAPI(object):
             Uses ESO Phase2 API method `getRuns()` to get the observing runs, and creates
             the list of form.ChoiceField tuples from the result.
             """
+            # TODO: this and other methods should be cached
             observing_runs, _ = self.api2.getRuns()
             return [(run['runId'], f"{run['progId']} - {run['telescope']} - {run['instrument']}")
                     for run in observing_runs]
