@@ -1,14 +1,11 @@
 import logging
 
-from crispy_forms.layout import Layout, Div, Field
-from crispy_forms.bootstrap import Accordion, AccordionGroup
+from crispy_forms.layout import Layout, HTML  # Div, Field
+
 from django.conf import settings
 from django import forms
-from django.utils.safestring import mark_safe
 
-from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility, get_service_class
-from tom_targets.models import Target
-
+from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
 from tom_eso import __version__
 from tom_eso.eso_api import ESOAPI
 
@@ -75,8 +72,10 @@ class ESOFacility(BaseRoboticObservationFacility):
 
     def data_products(self):
         pass
+
     def get_observation_status():
         pass
+
     def get_observation_url(self):
         pass
 
@@ -100,7 +99,9 @@ class ESOFacility(BaseRoboticObservationFacility):
 
     def get_terminal_observing_states(self):
         pass
+
     def submit_observation(self):
         pass
+
     def validate_observation(self):
         pass
