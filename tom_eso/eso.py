@@ -1,47 +1,66 @@
 import logging
 
-from crispy_forms.layout import Layout, Div, Field
-from crispy_forms.bootstrap import Accordion, AccordionGroup
+from crispy_forms.layout import Layout, HTML  # Div, Field
+
 from django.conf import settings
 from django import forms
-from django.utils.safestring import mark_safe
 
-from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility, get_service_class
-from tom_targets.models import Target
-
+from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
 from tom_eso import __version__
+from tom_eso.eso_api import ESOAPI
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
 class ESOObservationForm(BaseRoboticObservationForm):
-    pass
+
+    # 1. define the form fields,
+    # 2. the define the __init__ below
+    # 3. then the layout
+    # 4. implement other Fomrm methods
+
+    # 1. Form fields
+
     p1_observing_run = forms.ChoiceField(
         label='Observing Run',
-        # TODO: populate from ESO API
-        choices=[('choice_value_1', 'choice_label_1'),
-                 ('choice_value_2', 'choice_label_2')],
+        # choices set dynamically in __init__() from ESOAPI
         required=False,
     )
 
+    # 2. __init__()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eso = ESOAPI()
+
+        # set ChoiceField choices dynamically (at runtime) from ESOAPI
+        self.fields['p1_observing_run'].choices = self.eso.observing_run_choices()
+
+    # 3. now the layout
+
     def layout(self):
         layout = Layout(
-            'p1_observing_run'
+            'p1_observing_run',
+            HTML('<hr><p>More Field wigdets here</p><hr>'),
         )
         return layout
+
+    # 4. implement other Form methods
 
 
 class ESOFacility(BaseRoboticObservationFacility):
     name = 'ESO'
 
-    # TODO: try this, too: observation_form = ESOObservationForm
+    # key is the observation type, value is the form class
     observation_forms = {
         'XSHOOTER': ESOObservationForm
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.eso = ESOAPI()
 
     def get_facility_context_data(self, **kwargs):
         facility_context_data = super().get_facility_context_data(**kwargs)
@@ -55,31 +74,46 @@ class ESOFacility(BaseRoboticObservationFacility):
         return facility_context_data
 
     def get_form(self, observation_type):
-        logger.debug(f'ESOFacility.get_form() called for observation_type={observation_type}')
-        return ESOObservationForm
-        #return self.observation_forms.get(observation_type, ESOObservationForm)
+        """Return the form class for the given observation type.
+
+        Uses the observation_forms class varialble dictionary to map observation types to form classes.
+        If the obsevation type is not found, return the ESOboservationForm class
+        """
+        # use get() to return the default form class if the observation type is not found
+        return self.observation_forms.get(observation_type, ESOObservationForm)
 
     def data_products(self):
         pass
+
     def get_observation_status():
         pass
+
     def get_observation_url(self):
         pass
 
     def get_observing_sites(self):
-        # TODO return sane list of ESO observing sites
+        # see https://www.eso.org/sci/facilities/paranal/astroclimate/site.html#GeoInfo
+        # I don't see an API for this info, so it's hardcoded
         return {
-            'XSHOOTER': {
-                'sitecode': 'xshooter',
-                'latitude': -24.62733,
-                'longitude': -70.40417,
-                'elevation': 2635,  # meters
-            }
+            'PARANAL': {
+                'sitecode': 'paranal',
+                'latitude': -24.62733,   # 24 degrees 40' S
+                'longitude': -70.40417,  # 70 degrees 25' W
+                'elevation': 2635.43,    # meters
+            },
+            'LA_SILLA': {
+                'sitecode': 'lasilla',
+                'latitude': -29.25667,
+                'longitude': -70.73194,
+                'elevation': 2400.0,  # meters
+            },
         }
 
     def get_terminal_observing_states(self):
         pass
+
     def submit_observation(self):
         pass
+
     def validate_observation(self):
         pass
