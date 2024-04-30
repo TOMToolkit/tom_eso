@@ -5,7 +5,8 @@ from crispy_forms.layout import Layout, HTML  # Div, Field
 from django.conf import settings
 from django.urls import reverse_lazy
 from django import forms
-import django_htmx
+
+# import django_htmx
 
 from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
 from tom_eso import __version__
@@ -37,7 +38,6 @@ class ESOObservationForm(BaseRoboticObservationForm):
         label='Observing Run',
         choices=ESOAPI().observing_run_choices,  # callable to populate choices
         required=True,
-        #initial=(60925315, '60.A-9253(P) - UT2 - XSHOOTER'),
 
         # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
         widget=forms.Select(
@@ -72,7 +72,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
         # for testing purposes, set the initial values for the observing run
         self['p2_observing_run'].initial = (60925315, '60.A-9253(P) - UT2 - XSHOOTER')
-        #self['p2_observing_run'].initial = (60929601, '60.A-9296(B) - VISTA - QMOST')
+        # or this: self['p2_observing_run'].initial = (60929601, '60.A-9296(B) - VISTA - QMOST')
 
     # 3. now the layout
 
