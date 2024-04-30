@@ -3,7 +3,9 @@ import logging
 from crispy_forms.layout import Layout, HTML  # Div, Field
 
 from django.conf import settings
+from django.urls import reverse_lazy
 from django import forms
+import django_htmx
 
 from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
 from tom_eso import __version__
@@ -23,10 +25,37 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
     # 1. Form fields
 
-    p1_observing_run = forms.ChoiceField(
-        label='Observing Run',
-        # choices set dynamically in __init__() from ESOAPI
+    htmx_test = forms.CharField(
         required=False,
+        widget=forms.TextInput(
+            attrs={
+                'hx-get': reverse_lazy('home'),  # send GET request to this URL
+                'hx-trigger': 'keyup',  # when this happens
+            }))
+
+    p2_observing_run = forms.ChoiceField(
+        label='Observing Run',
+        choices=ESOAPI().observing_run_choices,  # callable to populate choices
+        required=True,
+        #initial=(60925315, '60.A-9253(P) - UT2 - XSHOOTER'),
+
+        # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
+        widget=forms.Select(
+            attrs={
+                'hx-get': reverse_lazy('observing-run'),  # send GET request to this URL
+                'hx-trigger': 'change',  # when this happens
+                'hx-target': '#div_id_p2_observing_run',  # update this field
+            })
+    )
+
+    p2_folder_name = forms.ChoiceField(
+        label='Folder Name',
+        required=True,
+        widget=forms.Select(
+            attrs={
+                'hx-get': reverse_lazy('home'),  # send GET request to this URL
+                'hx-trigger': 'change',  # when this happens
+            })
     )
 
     # 2. __init__()
@@ -35,14 +64,23 @@ class ESOObservationForm(BaseRoboticObservationForm):
         super().__init__(*args, **kwargs)
         self.eso = ESOAPI()
 
-        # set ChoiceField choices dynamically (at runtime) from ESOAPI
-        self.fields['p1_observing_run'].choices = self.eso.observing_run_choices()
+        # This form has a self.helper: crispy_forms.helper.FormHelper attribute.
+        # It is set in the BaseRoboticObservationForm class.
+        # We can use it to set attributes on the <form> tag.
+        # This is how we specify the forms htmx hx-XXXX attributes.
+        # (For the form fields, see the widget attrs in the field definitions above).
+
+        # for testing purposes, set the initial values for the observing run
+        self['p2_observing_run'].initial = (60925315, '60.A-9253(P) - UT2 - XSHOOTER')
+        #self['p2_observing_run'].initial = (60929601, '60.A-9296(B) - VISTA - QMOST')
 
     # 3. now the layout
 
     def layout(self):
         layout = Layout(
-            'p1_observing_run',
+            'htmx_test',  # this is a test field to see if htmx is working
+            'p2_observing_run',
+            'p2_folder_name',
             HTML('<hr><p>More Field wigdets here</p><hr>'),
         )
         return layout
