@@ -26,14 +26,6 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
     # 1. Form fields
 
-    htmx_test = forms.CharField(
-        required=False,
-        widget=forms.TextInput(
-            attrs={
-                'hx-get': reverse_lazy('home'),  # send GET request to this URL
-                'hx-trigger': 'keyup',  # when this happens
-            }))
-
     p2_observing_run = forms.ChoiceField(
         label='Observing Run',
         choices=ESOAPI().observing_run_choices,  # callable to populate choices
@@ -78,10 +70,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
     def layout(self):
         layout = Layout(
-            'htmx_test',  # this is a test field to see if htmx is working
             'p2_observing_run',
             'p2_folder_name',
-            HTML('<hr><p>More Field wigdets here</p><hr>'),
+            HTML('<hr><p>More Field widgets here</p><hr>'),
         )
         return layout
 
