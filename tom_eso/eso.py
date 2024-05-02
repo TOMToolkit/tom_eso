@@ -34,9 +34,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
         # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
         widget=forms.Select(
             attrs={
-                'hx-get': reverse_lazy('observing-run'),  # send GET request to this URL
                 'hx-trigger': 'change',  # when this happens
                 'hx-target': '#div_id_p2_observing_run',  # update this field
+                'hx-get': reverse_lazy('observing-run-folders'),  # send GET request to this URL
             })
     )
 
