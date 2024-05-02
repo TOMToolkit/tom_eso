@@ -1,6 +1,6 @@
 import logging
 
-from crispy_forms.layout import Layout, HTML  # Div, Field
+from crispy_forms.layout import Layout, HTML
 
 from django.conf import settings
 from django.urls import reverse_lazy
@@ -30,24 +30,22 @@ class ESOObservationForm(BaseRoboticObservationForm):
         label='Observing Run',
         choices=ESOAPI().observing_run_choices,  # callable to populate choices
         required=True,
-
         # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
         widget=forms.Select(
             attrs={
-                'hx-trigger': 'change',  # when this happens
-                'hx-target': '#div_id_p2_observing_run',  # update this field
                 'hx-get': reverse_lazy('observing-run-folders'),  # send GET request to this URL
+                # (the view for this endpoint returns folder names for the selected observing run)
+                'hx-trigger': 'change, load',  # when this happens
+                'hx-target': '#div_id_p2_folder_name',  # replace p2_folder_name div
             })
     )
 
     p2_folder_name = forms.ChoiceField(
         label='Folder Name',
-        required=True,
-        widget=forms.Select(
-            attrs={
-                'hx-get': reverse_lazy('home'),  # send GET request to this URL
-                'hx-trigger': 'change',  # when this happens
-            })
+        required=False,
+        # these choices will be updated when the p2_observing_run field is changed
+        # as specified by the htmx attributes on the p2_observing_run's <select> element
+        choices=[(0, 'Please select an Observing Run')],
     )
 
     # 2. __init__()
@@ -58,13 +56,14 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
         # This form has a self.helper: crispy_forms.helper.FormHelper attribute.
         # It is set in the BaseRoboticObservationForm class.
-        # We can use it to set attributes on the <form> tag.
-        # This is how we specify the forms htmx hx-XXXX attributes.
-        # (For the form fields, see the widget attrs in the field definitions above).
+        # We can use it to set attributes on the <form> tag (like htmx attributes, if necessary).
+        # For the field htmx, see the widget attrs in the field definitions above.
 
         # for testing purposes, set the initial values for the observing run
         self['p2_observing_run'].initial = (60925315, '60.A-9253(P) - UT2 - XSHOOTER')
-        # or this: self['p2_observing_run'].initial = (60929601, '60.A-9296(B) - VISTA - QMOST')
+        # intialize to this so we can switch to the XSHOOTER observing run (for now)
+        # TODO: upon loading, initialize the folders to whatever is present in the observing run
+        self['p2_observing_run'].initial = (60929601, '60.A-9296(B) - VISTA - QMOST')
 
     # 3. now the layout
 
