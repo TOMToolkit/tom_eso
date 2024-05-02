@@ -44,6 +44,25 @@ class ESOAPI(object):
             return [(run['runId'], f"{run['progId']} - {run['telescope']} - {run['instrument']}")
                     for run in observing_runs]
 
+        def folder_name_choices(self, observing_run_id):
+            """Return a list of tuples for the ESO Phase 2 folder names available to the user.
+
+            Uses ESO Phase2 API method `getItems()` for the ObservingRun's continer_id
+            to get the items and filters on itemType to select Folders.
+            Creates the list of form.ChoiceField tuples from the result.
+            """
+            observing_run, _ = self.api2.getRun(observing_run_id)
+            # logger.debug(f'observing_run: {observing_run}')
+            container_id = observing_run['containerId']
+
+            items_in_run_container, _ = self.api2.getItems(container_id)
+            # logger.debug(f'items: {items_in_run_container}')
+
+            folder_name_choices = [(folder['containerId'], folder['name'])
+                                   for folder in items_in_run_container if folder['itemType'] == 'Folder']
+            # logger.debug(f'folder_choices: {folder_name_choices}')
+            return folder_name_choices
+
     # Don't do anything else below here: it should all be handled by the inner class above.
     # Everything below just handles lazy instanciation and delegation to the inner class.
     _instance = None
