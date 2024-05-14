@@ -6,8 +6,6 @@ from django.conf import settings
 from django.urls import reverse_lazy
 from django import forms
 
-# import django_htmx
-
 from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
 from tom_eso import __version__
 from tom_eso.eso_api import ESOAPI
