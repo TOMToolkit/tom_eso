@@ -40,9 +40,13 @@ class ESOAPI(object):
             the list of form.ChoiceField tuples from the result.
             """
             # TODO: this and other methods should be cached
+
+            OBS_RUN_BLACK_LIST = [60925302, 60925303]
+
             observing_runs, _ = self.api2.getRuns()
+            logger.debug(f'for example, observing_runs[0]: {observing_runs[0]}')
             return [(run['runId'], f"{run['progId']} - {run['telescope']} - {run['instrument']}")
-                    for run in observing_runs]
+                    for run in observing_runs if not int(run['runId']) in OBS_RUN_BLACK_LIST]
 
         def folder_name_choices(self, observing_run_id):
             """Return a list of tuples for the ESO Phase 2 folder names available to the user.
@@ -58,6 +62,8 @@ class ESOAPI(object):
             items_in_run_container, _ = self.api2.getItems(container_id)
             # logger.debug(f'items: {items_in_run_container}')
 
+            # NOTE: here we know id is containerId, b/c we filter on itemType == 'Folder'
+            # see TODO in folder_item_choices() about get_item_id() method
             folder_name_choices = [(folder['containerId'], folder['name'])
                                    for folder in items_in_run_container if folder['itemType'] == 'Folder']
             # logger.debug(f'folder_choices: {folder_name_choices}')
