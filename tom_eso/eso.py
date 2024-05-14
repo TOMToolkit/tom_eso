@@ -32,11 +32,14 @@ class ESOObservationForm(BaseRoboticObservationForm):
         required=True,
         # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
         widget=forms.Select(
+            # set up attributes to trigger folder dropdown update when this field changes
             attrs={
                 'hx-get': reverse_lazy('observing-run-folders'),  # send GET request to this URL
                 # (the view for this endpoint returns folder names for the selected observing run)
                 'hx-trigger': 'change, load',  # when this happens
                 'hx-target': '#div_id_p2_folder_name',  # replace p2_folder_name div
+                'hx-indicator': '#spinner',  # show spinner while waiting for response
+                # 'hx-indicator': '#div_id_p2_folder_name',  # show spinner while waiting for response
             })
     )
 
@@ -62,13 +65,19 @@ class ESOObservationForm(BaseRoboticObservationForm):
         # for testing purposes, set the initial values for the observing run
         self['p2_observing_run'].initial = (60925315, '60.A-9253(P) - UT2 - XSHOOTER')
         # intialize to this so we can switch to the XSHOOTER observing run (for now)
-        # TODO: upon loading, initialize the folders to whatever is present in the observing run
         self['p2_observing_run'].initial = (60929601, '60.A-9296(B) - VISTA - QMOST')
 
     # 3. now the layout
+    def _get_spinner_image(self):
+        image = 'bluespinner.gif'
+        return f'{{% static "tom_common/img/{image}" %}}'
 
     def layout(self):
+        spinner_size = 20
         layout = Layout(
+            HTML((f"{{% load static %}} <img id='spinner' class='htmx-indicator'"
+                  f"width='{spinner_size}' height='{spinner_size}'"
+                  f"src={self._get_spinner_image()}></img>")),
             'p2_observing_run',
             'p2_folder_name',
             HTML('<hr><p>More Field widgets here</p><hr>'),
