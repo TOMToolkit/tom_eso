@@ -63,6 +63,36 @@ class ESOAPI(object):
             # logger.debug(f'folder_choices: {folder_name_choices}')
             return folder_name_choices
 
+        def folder_item_choices(self, folder_id):
+            """Return a list of tuples for the ESO Phase 2 folder items available to the user.
+
+            Uses ESO Phase2 API method `getItems()` for the Folder's continer_id
+            to get the items and filters on itemType to select Items.
+            Creates the list of form.ChoiceField tuples from the result.
+            """
+            try:
+                items_in_folder, _ = self.api2.getItems(folder_id)
+            except p2api.p2api.P2Error as e:
+                logger.error(f'API Error: {e}')
+                return [(0, 'Are there any items in this folder?')]
+            logger.debug(f'items: {items_in_folder}')
+
+            # TODO: we might need a get_item_id() method that uses the itemType to determing the
+            # dict key of the id: OB -> obId, Folder -> containerId, etc.
+            # folder_item_choices = [(item['obId'], f"{item['name']} : {item['itemType']} : {item['obStatus']}")
+            #                        for item in items_in_folder]
+
+            # or this loop where we try obID and fall back to containerId on KeyError
+            folder_item_choices = []
+            for item in items_in_folder:
+                try:
+                    folder_item_choices.append((item['obId'], f"{item['name']} : {item['itemType']}"))
+                except KeyError as e:
+                    logger.warning(f'KeyError: {e} for item: {item}')
+                    folder_item_choices.append((item['containerId'], f"{item['name']} : {item['itemType']}"))
+            logger.debug(f'folder_item_choices: {folder_item_choices}')
+            return folder_item_choices
+
     # Don't do anything else below here: it should all be handled by the inner class above.
     # Everything below just handles lazy instanciation and delegation to the inner class.
     _instance = None
