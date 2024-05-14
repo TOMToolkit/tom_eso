@@ -6,4 +6,5 @@ from . import views
 # (as python identifiers) have underscores.
 urlpatterns = [
     path('observing-run-folders/', views.folders_for_observing_run, name='observing-run-folders'),
+    path('folders-items/', views.items_for_folder, name='folder-items'),
 ]

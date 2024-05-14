@@ -42,3 +42,35 @@ def folders_for_observing_run(request):
     # get the HTML for the updated ChoiceField that will update the p2_folder_name in the DOM
     field_html = as_crispy_field(form['p2_folder_name'])
     return HttpResponse(field_html)
+
+
+def items_for_folder(request):
+    """Return an HTTPResponse which updates the Folder Items choices for the selected Folder.
+
+    Calls to this View are triggered by a change of the ``p2_folder_name`` ChoiceField,
+    as specified by the htmx attributes on its <select> element. See the ESOFacility,
+    where that ChoiceField is defined.
+
+    The ``folder_items`` MultipleChoiceField's ``choices`` are updated with the folder items
+    for the selected Folder, and the <select> element is returned as an <select> HTML element.
+    """
+    # extract the folder id from the request.GET QueryDict
+    try:
+        folder_id = int(request.GET['p2_folder_name'])
+    except ValueError as e:
+        logger.error(f'folder_id is not an integer: {request.GET["p2_folder_name"]}')
+        for key, value in request.GET.items():
+            logger.error(f'{key}: {value}')
+        folder_id = 0
+        raise e  # re-raise the exception
+    # logger.debug(f'folder_id: {folder_id}')
+
+    # Get the folder items for the selected folder
+    item_choices = ESOAPI().folder_item_choices(folder_id)
+
+    form = ESOObservationForm(request.GET)  # populate the form with the request data
+    field = form['folder_items']
+    field.field.choices = item_choices
+
+    field_html = as_crispy_field(form['folder_items'])
+    return HttpResponse(field_html)
