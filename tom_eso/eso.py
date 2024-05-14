@@ -46,7 +46,18 @@ class ESOObservationForm(BaseRoboticObservationForm):
         required=False,
         # these choices will be updated when the p2_observing_run field is changed
         # as specified by the htmx attributes on the p2_observing_run's <select> element
-        choices=[(0, 'Please select an Observing Run')],
+        choices=[(0, 'Please select an Observing Run')],  # overwritten by when observing run is selected
+        widget=forms.Select(
+            attrs={
+                'hx-get': reverse_lazy('folder-items'),  # send GET request to this URL
+                # (the view for this endpoint returns items for the selected folder)
+                'hx-trigger': 'change, load',  # when this happens
+                'hx-target': '#div_id_folder_items',  # replace HTML element with this id
+                'hx-indicator': '#spinner',  # show spinner while waiting for response
+                # 'hx-indicator': '#div_id_folder_items',  # show spinner while waiting for response
+            })
+    )
+
     folder_items = forms.MultipleChoiceField(
         label='Folder Items',
         required=False,
