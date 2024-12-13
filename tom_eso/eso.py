@@ -1,6 +1,6 @@
 import logging
 
-from crispy_forms.layout import Layout, HTML
+from crispy_forms.layout import Layout, HTML, Fieldset, Submit, ButtonHolder, Div
 
 from django.conf import settings
 from django.urls import reverse_lazy
@@ -164,6 +164,17 @@ class ESOObservationForm(BaseRoboticObservationForm):
         )
         return
 
+    def is_valid(self):
+        valid = super().is_valid()
+
+        observation_blocks_choice_field = self.fields['observation_blocks']
+        logger.debug(f'ESOObservationForm.is_valid() choices: {observation_blocks_choice_field.choices}')
+
+        logger.debug(f'ESOObservationForm.is_valid() valid: {valid}')
+
+        return valid
+
+
 class ESOFacility(BaseRoboticObservationFacility):
     name = 'ESO'
 
@@ -281,8 +292,25 @@ class ESOFacility(BaseRoboticObservationFacility):
     def get_terminal_observing_states(self):
         pass
 
-    def submit_observation(self):
-        pass
+    def submit_new_observation_block(self, observation_payload):
+        """
+        This is called when the user clicks the Create Observation Block button.
+        """
+        logger.debug(f'ESOFacility.submit_new_observation_block observation_payload: {observation_payload}')
+
+    def submit_observation(self, observation_payload):
+        """For the ESO Facility we're limited to creating new observation blocks for
+        the User to then go to the ESO Phase2 Tool to modify and submit from there
+
+        For now, the Create Observation Block button routes to here and we call the
+        ESOAPI.create_observation_block() method to create the new observation block.
+        """
+        logger.debug(f'ESOFacility.submit_observation observation_payload: {observation_payload}')
+
+        self.submit_new_observation_block(observation_payload)
+
+        created_observation_ids = []
+        return created_observation_ids
 
     def validate_observation(self):
         pass
