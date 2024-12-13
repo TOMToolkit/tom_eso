@@ -101,7 +101,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
         # for testing purposes, set the initial values for the observing run
         self['p2_observing_run'].initial = (60925315, '60.A-9253(P) - UT2 - XSHOOTER')
         # intialize to this so we can switch to the XSHOOTER observing run (for now)
-        self['p2_observing_run'].initial = (60929601, '60.A-9296(B) - VISTA - QMOST')
+        # self['p2_observing_run'].initial = (60929601, '60.A-9296(B) - VISTA - QMOST')
 
     # 3. now the layout
     def _get_spinner_image(self):
