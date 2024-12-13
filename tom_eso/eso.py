@@ -1,6 +1,6 @@
 import logging
 
-from crispy_forms.layout import Layout, HTML, Fieldset, Submit, ButtonHolder, Div
+from crispy_forms.layout import Layout, HTML, Submit, ButtonHolder, Div
 
 from django.conf import settings
 from django.urls import reverse_lazy
