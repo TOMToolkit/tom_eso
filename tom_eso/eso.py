@@ -72,6 +72,12 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 'hx-target': '#div_id_eso_p2_tool_iframe',  # replace this div
                 })
     )
+
+    # for new observation blocks, the user will enter the observation block name
+    observation_block_name = forms.CharField(
+        label='Observation Block Name',
+        required=True,
+        widget=forms.TextInput(attrs={'placeholder': 'Enter Observation Block Name'})
     )
 
     # 2. __init__()
@@ -96,16 +102,42 @@ class ESOObservationForm(BaseRoboticObservationForm):
         return f'{{% static "tom_common/img/{image}" %}}'
 
     def layout(self):
+        """Define the ESO-specific layout for the form.
+
+        This method is called by the BaseObservationForm class's __init__() method as it sets up
+        the crispy_forms helper.layout attribute. See the layout() stub in the BaseObservationForm class.
+        """
         spinner_size = 20
         layout = Layout(
+            # the spinner is displayed only while waiting for the response from the ESO P2 API
+            # TODO: make the spinner more obvious
             HTML((f"{{% load static %}} <img id='spinner' class='htmx-indicator'"
                   f"width='{spinner_size}' height='{spinner_size}'"
                   f"src={self._get_spinner_image()}></img>")),
-            'p2_observing_run',
-            'p2_folder_name',
-            'folder_items',
-            HTML('<hr><p>More Field widgets here</p><hr>'),
+            Div(
+                Div('p2_observing_run', css_class='col'),
+                Div('p2_folder_name', css_class='col'),
                 Div('observation_blocks', css_class='col'),
+                css_class='form-row',
+            ),
+
+            # Add the "Create Observation Block" button
+            Div(
+                Div('observation_block_name', css_class='col-8'),
+                Div(  # this col Div structure mirrors the Div structure of the obervation_block_name Div
+                      # so that they can be on the same row and vertically aligned (by their centers)
+                    Div(
+                        HTML('<label style="visibility:hidden">I am just a vertical space holder!</label>'),
+                        Div(Submit('create_observation_block', 'Create Observation Block')),
+                        css_class='form-group',  # Bootstrap classes for vertical centering
+                        id="div_id_observation_block_name"  # must match id of observation_block_name field Div
+                    ),
+                    css_class='col-4',
+                ),
+                css_class='form-row',
+            ),
+
+            # tom_eso/observation_form.html will add the ESO Phase2 Tool iframe here
         )
         return layout
 
