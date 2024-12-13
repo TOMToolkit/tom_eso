@@ -41,12 +41,18 @@ class ESOObservationForm(BaseRoboticObservationForm):
             })
     )
 
-    p2_folder_name = forms.ChoiceField(
+    p2_folder_name = forms.TypedChoiceField(
+        # The folder name is a ChoiceField that is updated when the observing run is selected.
+        # Choices are are of the form (folder_id, folder_name) where folder_id is an integer.
+        # Because the folder_id is an integer, we use a TypedChoiceField and set coerce=int.
         label='Folder Name',
         required=False,
+        coerce=int,
         # these choices will be updated when the p2_observing_run field is changed
         # as specified by the htmx attributes on the p2_observing_run's <select> element
         choices=[(0, 'Please select an Observing Run')],  # overwritten by when observing run is selected
+        # when this ChoiceField is changed, the Observation Blocks for the newly selected folder
+        # are updated in the by the htmx attributes on this field's <select> element (below, see widget attrs)
         widget=forms.Select(
             attrs={
                 'hx-get': reverse_lazy('folder-observation-blocks'),  # send GET request to this URL
@@ -57,9 +63,10 @@ class ESOObservationForm(BaseRoboticObservationForm):
             })
     )
 
-    observation_blocks = forms.ChoiceField(
+    observation_blocks = forms.TypedChoiceField(
         label='Observation Blocks',
         required=False,
+        coerce=int,
         choices=[(0, 'Please select a Folder')],
         widget=forms.Select(
             attrs={
