@@ -167,9 +167,13 @@ class ESOObservationForm(BaseRoboticObservationForm):
 class ESOFacility(BaseRoboticObservationFacility):
     name = 'ESO'
 
+    # don't use the default template in the BaseRoboticObservationFacility b/c we want to
+    # add an iframe point to the ESO P2 Tool
+    template_name = 'tom_eso/observation_form.html'
+
     # key is the observation type, value is the form class
     observation_forms = {
-        'XSHOOTER': ESOObservationForm
+        'ESO': ESOObservationForm
     }
 
     def __init__(self, *args, **kwargs):
