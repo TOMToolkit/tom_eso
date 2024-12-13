@@ -180,15 +180,66 @@ class ESOFacility(BaseRoboticObservationFacility):
         super().__init__(*args, **kwargs)
         self.eso = ESOAPI()
 
+    @classmethod
+    def get_p2_tool_url(self,
+                        observation_run_id=None,
+                        container_id=None,
+                        observation_block_id=None):
+        """Return the URL for the ESO P2 Tool.
+
+        The URL is constructed using the ESO_ENVIRONMENT from settings.
+        If an observation run ID is provided, the URL will include the observing run ID.
+        If an observation block ID is provided, the URL will include the observation block ID.
+
+        ESO P2 Tool URLs look like this:
+        Show Observation Run:   https://www.eso.org/p2/home/runId/<runId>
+        Show Container:         https://www.eso.org/p2/home/containerId/<containerId>
+        Show Observation Block: https://www.eso.org/p2/home/obId/<obID>
+        Show OBlock Target tab: https://www.eso.org/p2/home/obId/<obID>/obs-description/target
+
+        Observation Blocks take precedence over containers,
+        which take precedence over an observing run.
+        """
+        # construct the base p2_tool_url using the ESO_ENVIRONMENT from settings
+        if settings.FACILITIES['ESO']['environment'] == 'production':
+            eso_env = ''  # url is https://www.eso.org/p2/home
+        elif settings.FACILITIES['ESO']['environment'] == 'demo':
+            eso_env = 'demo'  # url is https://www.eso.org/p2demo/home
+        else:
+            eso_env = 'demo'  # safest default
+        p2_tool_url = f'https://www.eso.org/p2{eso_env}/home'
+
+        # if an object ID is provided, add it to the URL
+        if observation_block_id:
+            p2_tool_url = f'{p2_tool_url}/ob/{observation_block_id}'
+        elif container_id:
+            p2_tool_url = f'{p2_tool_url}/container/{container_id}'
+        elif observation_run_id:
+            p2_tool_url = f'{p2_tool_url}/run/{observation_run_id}'
+
+        return p2_tool_url
+
     def get_facility_context_data(self, **kwargs):
+        """Allow the facility to add additional context data to the template.
+
+        This method is called by `tom_observations.views.ObservationCreateView.get_context_data()`.
+        """
+        logger.debug(f'ESOFacility.get_facility_context_data kwargs: {kwargs}')
         facility_context_data = super().get_facility_context_data(**kwargs)
 
+        p2_tool_url = self.get_p2_tool_url()
+
+        logger.debug(f'ESOFacility.get_facility_context_data facility_context_data: {facility_context_data}')
         new_context_data = {
             'version': __version__,  # from tom_eso/__init__.py
             'username': settings.FACILITIES['ESO']['username'],
+            'iframe_url': p2_tool_url,
+            'observation_form': ESOObservationForm,
         }
+        logger.debug(f'eso new_context_data: {new_context_data}')
 
         facility_context_data.update(new_context_data)
+        logger.debug(f'eso facility_context_data: {facility_context_data}')
         return facility_context_data
 
     def get_form(self, observation_type):
