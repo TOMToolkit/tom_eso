@@ -107,6 +107,19 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
     # 4. implement other Form methods
 
+    def button_layout(self):
+        """We override the button_layout() method in this (ESOObservationForm) class
+        because Users will use the ESO P2 Tool to submit their observations requests.
+        By overriding this method (and not calling super()), we remove the "Submit",
+        "Validate", and "Back" buttons from the form.
+        """
+        target_id = self.initial.get('target_id')
+        logger.debug(f'ESOObservationForm.button_layout() target_id: {target_id}')
+        return ButtonHolder(
+            HTML(f'''<a class="btn btn-outline-primary"
+             href="{{% url 'tom_targets:detail' {target_id} %}}?tab=observe">Back</a>''')
+        )
+        return
 
 class ESOFacility(BaseRoboticObservationFacility):
     name = 'ESO'
