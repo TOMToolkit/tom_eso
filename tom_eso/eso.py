@@ -49,26 +49,29 @@ class ESOObservationForm(BaseRoboticObservationForm):
         choices=[(0, 'Please select an Observing Run')],  # overwritten by when observing run is selected
         widget=forms.Select(
             attrs={
-                'hx-get': reverse_lazy('folder-items'),  # send GET request to this URL
+                'hx-get': reverse_lazy('folder-observation-blocks'),  # send GET request to this URL
                 # (the view for this endpoint returns items for the selected folder)
                 'hx-trigger': 'change, load',  # when this happens
-                'hx-target': '#div_id_folder_items',  # replace HTML element with this id
+                'hx-target': '#div_id_observation_blocks',  # replace HTML element with this id
                 'hx-indicator': '#spinner',  # show spinner while waiting for response
-                # 'hx-indicator': '#div_id_folder_items',  # show spinner while waiting for response
             })
     )
 
-    folder_items = forms.MultipleChoiceField(
-        label='Folder Items',
+    observation_blocks = forms.ChoiceField(
+        label='Observation Blocks',
         required=False,
-        choices=[(0, 'Please select a Folder'), (1, 'Item 1'), (2, 'Item 2')],
-        widget=forms.CheckboxSelectMultiple(),
-        #     attrs={
-        #         'hx-get': reverse_lazy('folder-items'),  # send GET request to this URL
-        #         # (the view for this endpoint returns folder items for the selected folder)
-        #         'hx-trigger': 'change, load',  # when this happens
-        #         'hx-target': '#div_id_folder_items',  # replace folder_items div
-        #     })
+        choices=[(0, 'Please select a Folder')],
+        widget=forms.Select(
+            attrs={
+                # these htmx attributes make it such that when you select an observation block, the
+                # iframe is updated with the ESO P2 Tool page for that observation block
+                'hx-get': reverse_lazy('show-observation-block'),  # send GET request to this URL
+                # (the view for this endpoint returns folder items for the selected folder)
+                'hx-trigger': 'change, load',  # when this happens
+                'hx-indicator': '#spinner',  # show spinner while waiting for response
+                'hx-target': '#div_id_eso_p2_tool_iframe',  # replace this div
+                })
+    )
     )
 
     # 2. __init__()
@@ -102,6 +105,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
             'p2_folder_name',
             'folder_items',
             HTML('<hr><p>More Field widgets here</p><hr>'),
+                Div('observation_blocks', css_class='col'),
         )
         return layout
 
