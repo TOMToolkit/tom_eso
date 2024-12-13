@@ -33,6 +33,33 @@ class ESOAPI(object):
             self.api1 = p1api.ApiConnection(self.environment, self.username, self.password)
             self.api2 = p2api.ApiConnection(self.environment, self.username, self.password)
 
+        def create_observation_block(self, folder_id, ob_name, target=None):
+            """Create a new Observation Block in the specified folder. Return the new OB's id.
+            If a Target is specified, add it to the OB.
+
+            """
+            logger.debug(f'create_observation_block: folder_id: {folder_id}, ob_name: {ob_name}, target: {target}')
+
+            new_ob_id = self.api2.createOB(folder_id, ob_name)
+            logger.debug(f'create_observation_block: new_ob_id: {new_ob_id}')
+
+            if target:
+                logger.debug(f'Adding {target} to new observation_block: target: {target}')
+                # add the target to the new OB by modifying the OB JSON
+                ob, ob_version = self.api2.getOB(new_ob_id)
+
+                logger.debug(f'Adding {target} to new observation_block: ob: {ob}')
+
+                ob['target']['name'] = target.name
+                ob['target']['ra'] = target.ra
+                ob['target']['dec'] = target.dec
+
+                logger.debug(f'Saving {target} to new observation_block: ob: {ob}')
+
+                self.api2.saveOB(new_ob_id, ob, ob_version)
+
+            return new_ob_id
+
         def observing_run_choices(self):
             """Return a list of tuples for the ESO Phase 2 observing runs available to the user.
 
