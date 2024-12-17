@@ -41,10 +41,7 @@ class ESOAPI(object):
             If a Target is specified, add it to the OB.
 
             """
-            logger.debug(f'create_observation_block: folder_id: {folder_id}, ob_name: {ob_name}, target: {target}')
-
-            new_ob_id = self.api2.createOB(folder_id, ob_name)
-            logger.debug(f'create_observation_block: new_ob_id: {new_ob_id}')
+            new_OB, ob_version = self.api2.createOB(folder_id, ob_name)
 
             if target:
                 # add the target data to the new OB by modifying the OB JSON
@@ -56,13 +53,10 @@ class ESOAPI(object):
                 new_OB['target']['ra'] = Angle(target.ra, unit=u.deg).to_string(unit=u.hourangle, sep=':', precision=3)
                 new_OB['target']['dec'] = Angle(target.dec, unit=u.deg).to_string(unit=u.deg, sep=':', precision=3,
                                                                                   alwayssign=True)
+                # save the updated observation block
+                saved_observation_block, ob_version = self.api2.saveOB(new_OB, ob_version)
 
-
-                logger.debug(f'Saving {target} to new observation_block: ob: {ob}')
-
-                self.api2.saveOB(new_ob_id, ob, ob_version)
-
-            return new_ob_id
+            return saved_observation_block
 
         def observing_run_choices(self):
             """Return a list of tuples for the ESO Phase 2 observing runs available to the user.
