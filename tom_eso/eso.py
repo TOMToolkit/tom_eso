@@ -9,6 +9,7 @@ from django import forms
 from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
 from tom_eso import __version__
 from tom_eso.eso_api import ESOAPI
+from tom_targets.models import Target
 
 
 logger = logging.getLogger(__name__)
@@ -24,8 +25,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
     # 1. Form fields
 
-    p2_observing_run = forms.ChoiceField(
+    p2_observing_run = forms.TypedChoiceField(
         label='Observing Run',
+        coerce=int,
         choices=ESOAPI().observing_run_choices,  # callable to populate choices
         required=True,
         # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
@@ -131,8 +133,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
             # Add the "Create Observation Block" button
             Div(
                 Div('observation_block_name', css_class='col-8'),
-                Div(  # this col Div structure mirrors the Div structure of the obervation_block_name Div
+                Div(  # This col Div structure mirrors the Div structure of the obervation_block_name Div
                       # so that they can be on the same row and vertically aligned (by their centers)
+                      # That observation_block_name Div structure is defined by crispy_forms.
                     Div(
                         HTML('<label style="visibility:hidden">I am just a vertical space holder!</label>'),
                         Div(Submit('create_observation_block', 'Create Observation Block')),
@@ -143,7 +146,6 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 ),
                 css_class='form-row',
             ),
-
             # tom_eso/observation_form.html will add the ESO Phase2 Tool iframe here
         )
         return layout
@@ -235,22 +237,22 @@ class ESOFacility(BaseRoboticObservationFacility):
 
         This method is called by `tom_observations.views.ObservationCreateView.get_context_data()`.
         """
-        logger.debug(f'ESOFacility.get_facility_context_data kwargs: {kwargs}')
+        # logger.debug(f'ESOFacility.get_facility_context_data kwargs: {kwargs}')
         facility_context_data = super().get_facility_context_data(**kwargs)
 
         p2_tool_url = self.get_p2_tool_url()
 
-        logger.debug(f'ESOFacility.get_facility_context_data facility_context_data: {facility_context_data}')
+        # logger.debug(f'ESOFacility.get_facility_context_data facility_context_data: {facility_context_data}')
         new_context_data = {
             'version': __version__,  # from tom_eso/__init__.py
             'username': settings.FACILITIES['ESO']['username'],
             'iframe_url': p2_tool_url,
             'observation_form': ESOObservationForm,
         }
-        logger.debug(f'eso new_context_data: {new_context_data}')
+        # logger.debug(f'eso new_context_data: {new_context_data}')
 
         facility_context_data.update(new_context_data)
-        logger.debug(f'eso facility_context_data: {facility_context_data}')
+        # logger.debug(f'eso facility_context_data: {facility_context_data}')
         return facility_context_data
 
     def get_form(self, observation_type):
@@ -274,6 +276,7 @@ class ESOFacility(BaseRoboticObservationFacility):
     def get_observing_sites(self):
         # see https://www.eso.org/sci/facilities/paranal/astroclimate/site.html#GeoInfo
         # I don't see an API for this info, so it's hardcoded
+        # TODO: get data for all the ESO sites for production
         return {
             'PARANAL': {
                 'sitecode': 'paranal',
@@ -297,16 +300,26 @@ class ESOFacility(BaseRoboticObservationFacility):
         This is called when the user clicks the Create Observation Block button.
         """
         logger.debug(f'ESOFacility.submit_new_observation_block observation_payload: {observation_payload}')
+        target_id = observation_payload['target_id']
+        target = Target.objects.get(pk=target_id)
+
+        new_observation_block = self.eso.create_observation_block(
+            folder_id=observation_payload['params']['p2_folder_name'],
+            ob_name=observation_payload['params']['observation_block_name'],
+            target=target
+        )
+        # TODO: redirect with new observation block id in the ESO P2 Tool iframe
+        logger.debug(f'ESOFacility.submit_new_observation_block new_observation_block: {new_observation_block}')
+
 
     def submit_observation(self, observation_payload):
         """For the ESO Facility we're limited to creating new observation blocks for
-        the User to then go to the ESO Phase2 Tool to modify and submit from there
+        the User to then go to the ESO Phase2 Tool to modify and submit from there.
 
         For now, the Create Observation Block button routes to here and we call the
         ESOAPI.create_observation_block() method to create the new observation block.
         """
-        logger.debug(f'ESOFacility.submit_observation observation_payload: {observation_payload}')
-
+        # this method is really just an adaptor to call submit_new_observation_block()
         self.submit_new_observation_block(observation_payload)
 
         created_observation_ids = []
