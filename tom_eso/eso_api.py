@@ -74,33 +74,31 @@ class ESOAPI(object):
                 logger.error(f'API Error: {e}')
                 return [(0, 'Are there any observing runs?')]
 
-            # logger.debug(f'for example, observing_runs[0]: {observing_runs[0]}')
-            return [(run['runId'], f"{run['progId']} - {run['telescope']} - {run['instrument']}")
+            return [(int(run['runId']), f"{run['progId']} - {run['telescope']} - {run['instrument']}")
                     for run in observing_runs if not int(run['runId']) in OBS_RUN_BLACK_LIST]
 
         def folder_name_choices(self, observing_run_id):
             """Return a list of tuples for the ESO Phase 2 folder names available to the user.
+            (These are the folders in the selected Observing Run).
 
             Uses ESO Phase2 API method `getItems()` for the ObservingRun's continer_id
             to get the items and filters on itemType to select Folders.
             Creates the list of form.ChoiceField tuples from the result.
             """
             observing_run, _ = self.api2.getRun(observing_run_id)
-            # logger.debug(f'observing_run: {observing_run}')
             container_id = observing_run['containerId']
 
             items_in_run_container, _ = self.api2.getItems(container_id)
-            # logger.debug(f'items: {items_in_run_container}')
 
             # NOTE: here we know id is containerId, b/c we filter on itemType == 'Folder'
             # see TODO in folder_item_choices() about get_item_id() method
-            folder_name_choices = [(str(folder['containerId']), folder['name'])
+            folder_name_choices = [(int(folder['containerId']), folder['name'])
                                    for folder in items_in_run_container if folder['itemType'] == 'Folder']
-            # logger.debug(f'folder_choices: {folder_name_choices}')
             return folder_name_choices
 
         def folder_item_choices(self, folder_id):
             """Return a list of tuples for the ESO Phase 2 folder items available to the user.
+            (These are the items in the selected Folder).
 
             Uses ESO Phase2 API method `getItems()` for the Folder's continer_id
             to get the items and filters on itemType to select Items.
@@ -122,7 +120,7 @@ class ESOAPI(object):
             folder_item_choices = []
             for item in items_in_folder:
                 try:
-                    folder_item_choices.append((item['obId'], f"{item['name']} : {item['itemType']}"))
+                    folder_item_choices.append((int(item['obId']), f"{item['name']} : {item['itemType']}"))
                 except KeyError as e:
                     logger.debug(f'{__name__}: folder_item_choices: KeyError: {e} for item: {item}')
 
@@ -144,7 +142,6 @@ class ESOAPI(object):
             except p2api.p2api.P2Error as e:
                 logger.error(f'API Error: {e}')
                 return [(0, 'Are there any items in this folder?')]
-            # logger.debug(f'items: {items_in_folder}')
 
             # TODO: we might need a get_item_id() method that uses the itemType to determing the
             # dict key of the id: OB -> obId, Folder -> containerId, etc.
@@ -155,15 +152,12 @@ class ESOAPI(object):
             folder_ob_choices = []
             for item in items_in_folder:
                 try:
-                    folder_ob_choices.append((str(item['obId']), f"{item['name']} : {item['itemType']}"))
-                except KeyError as e:
-                    logger.debug(f'{__name__}: folder_ob_choices: KeyError: {e} for item: {item}')
-                    # the item doesn't have an obId, so ignore it (unlike folder_item_choices, above
+                    folder_ob_choices.append((int(item['obId']), f"{item['name']} : {item['itemType']}"))
+                except KeyError:  # as e:
+                    pass
+                    # logger.debug(f'{__name__}: folder_ob_choices: KeyError: {e} for item: {item}')
+                    # the item doesn't have an obId, so ignore it (unlike folder_item_choices, above)
 
-            # finally, add a choice for a new observation block
-            # folder_ob_choices.append((-1, 'New Observation Block'))
-
-            # logger.debug(f'folder_ob_choices: {folder_ob_choices}')
             return folder_ob_choices
 
         def getOB(self, ob_id):
