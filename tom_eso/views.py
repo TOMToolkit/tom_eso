@@ -33,9 +33,8 @@ def folders_for_observing_run(request):
     # TODO: considing caching the results
     folder_name_choices = ESOAPI().folder_name_choices(observing_run_id)
 
-    # Update the choices for the p2_folder_name field
-    form = ESOObservationForm(request.GET)  # populate the form with the request data
-    form.fields['p2_folder_name'].choices = folder_name_choices
+    form = ESOObservationForm()  # instantiate the UNBOUND form
+    form.fields['p2_folder_name'].choices = folder_name_choices  # update the choices of the UNBOUND form
 
     # get the HTML for the updated ChoiceField that will update the p2_folder_name in the DOM
     field_html = as_crispy_field(form['p2_folder_name'])
@@ -65,10 +64,8 @@ def observation_blocks_for_folder(request):
     # Get the observation_blocks in the selected folder
     observation_block_choices = ESOAPI().folder_ob_choices(folder_id)
 
-    form = ESOObservationForm(request.GET)  # get the form and populate it with the request data
-    form.fields['observation_blocks'].choices = observation_block_choices
-    # form['observation_blocks'] returns the rendered HTML <select> element
-    # form.fields['observation_blocks'] is the django.forms.fields.ChoiceField object
+    form = ESOObservationForm()  # instantiate the UNBOUND form
+    form.fields['observation_blocks'].choices = observation_block_choices  # update the choices of the UNBOUND form
 
     # now render the field as HTM and return it in the HTTPResponse
     field_html = as_crispy_field(form['observation_blocks'])
@@ -84,7 +81,7 @@ def show_observation_block(request):
     try:
         observation_block_id = int(request.GET['observation_blocks'])
     except ValueError as e:
-        logger.error(f'ob_id is not an integer: {request.GET["folder_items"]}')
+        logger.error(f'ob_id is not an integer: {request.GET["observation_blocks"]}')
         for key, value in request.GET.items():
             logger.error(f'{key}: {value}')
         observation_block_id = 0
