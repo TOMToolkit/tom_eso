@@ -324,7 +324,6 @@ class ESOFacility(BaseRoboticObservationFacility):
         # TODO: redirect with new observation block id in the ESO P2 Tool iframe
         logger.debug(f'ESOFacility.submit_new_observation_block new_observation_block: {new_observation_block}')
 
-
     def submit_observation(self, observation_payload):
         """For the ESO Facility we're limited to creating new observation blocks for
         the User to then go to the ESO Phase2 Tool to modify and submit from there.
