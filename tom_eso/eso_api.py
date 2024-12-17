@@ -1,5 +1,8 @@
 import logging
 
+from astropy.coordinates import Angle
+from astropy import units as u
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
@@ -44,15 +47,16 @@ class ESOAPI(object):
             logger.debug(f'create_observation_block: new_ob_id: {new_ob_id}')
 
             if target:
-                logger.debug(f'Adding {target} to new observation_block: target: {target}')
-                # add the target to the new OB by modifying the OB JSON
-                ob, ob_version = self.api2.getOB(new_ob_id)
+                # add the target data to the new OB by modifying the OB JSON
+                new_OB['target']['name'] = target.name
 
-                logger.debug(f'Adding {target} to new observation_block: ob: {ob}')
+                # For ESO P2 API, the RA and Dec have specific formats:
+                # RA: Valid format is HH:MM:SS.sss, with 0 <= HH <= 23, 0 <= MM < 60 and 0 <= SS < 60.]
+                # Dec: Valid format is [+|-]DD:MM:SS.sss, with -90 <= DD <= 90, 0 <= MM < 60 and 0 <= SS < 60.]
+                new_OB['target']['ra'] = Angle(target.ra, unit=u.deg).to_string(unit=u.hourangle, sep=':', precision=3)
+                new_OB['target']['dec'] = Angle(target.dec, unit=u.deg).to_string(unit=u.deg, sep=':', precision=3,
+                                                                                  alwayssign=True)
 
-                ob['target']['name'] = target.name
-                ob['target']['ra'] = target.ra
-                ob['target']['dec'] = target.dec
 
                 logger.debug(f'Saving {target} to new observation_block: ob: {ob}')
 
