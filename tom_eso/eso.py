@@ -159,12 +159,15 @@ class ESOObservationForm(BaseRoboticObservationForm):
         "Validate", and "Back" buttons from the form.
         """
         target_id = self.initial.get('target_id')
-        logger.debug(f'ESOObservationForm.button_layout() target_id: {target_id}')
-        return ButtonHolder(
-            HTML(f'''<a class="btn btn-outline-primary"
-             href="{{% url 'tom_targets:detail' {target_id} %}}?tab=observe">Back</a>''')
-        )
-        return
+        if not target_id:
+            pass
+            # logger.error(f'ESOObservationForm.button_layout() target_id ({target_id}) not found in initial data')
+            return
+        else:
+            return ButtonHolder(
+                HTML(f'''<a class="btn btn-outline-primary"
+                 href="{{% url 'tom_targets:detail' {target_id} %}}?tab=observe">Back</a>''')
+            )
 
     def is_valid(self):
         valid = super().is_valid()
