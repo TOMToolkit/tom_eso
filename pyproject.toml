@@ -9,9 +9,8 @@ readme = "README.md"
 packages = [{include = "tom_eso"}]
 
 [tool.poetry.dependencies]
-python = ">=3.8.1,<3.12"
-#TODO: add tomtoolkit back in when ready
-#tomtoolkit = ">=2.15"
+python = ">=3.9.0,<3.13"
+tomtoolkit = ">=2.22"
 p2api = "~1"
 phase1api = "~0"
 
