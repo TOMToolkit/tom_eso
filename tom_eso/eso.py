@@ -170,13 +170,20 @@ class ESOObservationForm(BaseRoboticObservationForm):
             )
 
     def is_valid(self):
+        """
+        """
+        # extract values from the BoundFields (and use them to update the ChoiceField choices)
+        p2_observing_run_id = int(self["p2_observing_run"].value())
+        p2_folder_id = int(self["p2_folder_name"].value())
+        # observation_block = int(self["observation_blocks"].value())
+
+        # update the ChoiceField choices from the ESO API
+        # TODO: these should be cached and updated in the htmx views
+        self["p2_folder_name"].field.choices = self.eso.folder_name_choices(observing_run_id=p2_observing_run_id)
+        self["observation_blocks"].field.choices = self.eso.folder_ob_choices(p2_folder_id)
+
+        # now that the choices are updated, we are ready to validate the form
         valid = super().is_valid()
-
-        observation_blocks_choice_field = self.fields['observation_blocks']
-        logger.debug(f'ESOObservationForm.is_valid() choices: {observation_blocks_choice_field.choices}')
-
-        logger.debug(f'ESOObservationForm.is_valid() valid: {valid}')
-
         return valid
 
 
