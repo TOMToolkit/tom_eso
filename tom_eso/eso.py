@@ -170,7 +170,10 @@ class ESOObservationForm(BaseRoboticObservationForm):
             )
 
     def is_valid(self):
-        """
+        """Update the ChoiceField choices before validating the form. This must be done on the
+        form instance that is to be validated. (The form instances in views.py is a different instance
+        and it is sufficient to update it's choices for rendering the form, but not for validation.
+        That must be done on the instance that is to be validated.)
         """
         # extract values from the BoundFields (and use them to update the ChoiceField choices)
         p2_observing_run_id = int(self["p2_observing_run"].value())
