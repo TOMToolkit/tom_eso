@@ -11,14 +11,6 @@
 <h1>Submit Request an ESO Facility for <a href="{% url 'targets:detail' pk=target.id %}">{{target.name}}</a></h1>
 
 
-{% if target.type == 'SIDEREAL' %}
-<div class="row">
-    <div class="col">
-    {% observation_plan target form.facility.value %}
-    </div>
-</div>
-<hr>
-{% endif %}
 
 <!-- this row contains the Target data in column 1 and the Moon distance in column 2 -->
 <div class="row">
@@ -33,8 +25,16 @@
     </div>
     <!-- Column 2 -->
     <div class="col-md-8">
-        <h4>Lunar Distance</h4>
-    {% moon_distance target width=None %}
+        <div class="row">
+            <h4>Lunar Distance</h4>
+            {% moon_distance target width=None %}
+        </div>
+        <hr>
+        <div class="row">
+            {% if target.type == 'SIDEREAL' %}
+                {% observation_plan target form.facility.value %}
+            {% endif %}
+        </div>
     </div>
 </div>
 
