@@ -1,0 +1,70 @@
+{% extends 'tom_common/base.html' %}
+{% load bootstrap4 static crispy_forms_tags observation_extras targets_extras %}
+{% block title %}Submit Observation{% endblock title %}
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'tom_common/css/main.css' %}">
+<link rel="stylesheet" href="{% static 'tom_observations/css/main.css' %}">
+{% endblock additional_css %}
+{% block content %}
+
+{{ form|as_crispy_errors }}
+<h1>Submit Request an ESO Facility for <a href="{% url 'targets:detail' pk=target.id %}">{{target.name}}</a></h1>
+
+
+
+<!-- this row contains the Target data in column 1 and the Moon distance in column 2 -->
+<div class="row">
+    <!-- Column 1 -->
+    <div class="col-md-4">
+        <h4>Target Information</h4>
+        {% target_data target %}
+        <hr>
+        <p><b>Submitting credential:</b> <em>{{ username }}</em></p>
+        <!-- display tom_eso Facility version -->
+        <p><em>TOM Toolkit Facility (<a target="_blank" href="https://github.com/TOMToolkit/tom_eso">tom_eso</a>) version {{ version }}</em></p>
+    </div>
+    <!-- Column 2 -->
+    <div class="col-md-8">
+        <div class="row">
+            <h4>Lunar Distance</h4>
+            {% moon_distance target width=None %}
+        </div>
+        <hr>
+        <div class="row">
+            {% if target.type == 'SIDEREAL' %}
+                {% observation_plan target form.facility.value %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<hr>
+
+{% comment %}
+<!-- here, we display the form with out the normal Observation Type tabs.
+     however, we still need to get the form from the observation_type_choices
+     b/c the <not sure why> but if you just try to display the observation_form,
+     the request.POST QueryDict doesn't have entries for the target_id or facility
+     The entire Facilty class hierarchy should be refactored into something sane.
+-->
+{% endcomment %}
+
+<div class="observation-form">
+{% for observation_type, observation_form in observation_type_choices %}
+    <div  id="{{ observation_type }}">
+        {% crispy observation_form %}
+    </div>
+{% endfor %}
+</div>
+
+<hr>
+
+<!-- iframe pointing to ESO P2 Tool (should span window) -->
+ <div id="div_id_eso_p2_tool_iframe" style="height:800px;">
+    <iframe id="id_eso_p2_tool_iframe" height=100% width="100%" src="{{ iframe_url }}"></iframe>
+</div>
+<hr>
+
+
+
+{% endblock content %}
