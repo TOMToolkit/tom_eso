@@ -1,11 +1,15 @@
 import logging
 # from django.shortcuts import render
 from django.http import HttpResponse
+from django.views.generic.edit import UpdateView
+from django.urls import reverse_lazy
 
 from crispy_forms.templatetags.crispy_forms_filters import as_crispy_field
 
 from tom_eso.eso_api import ESOAPI
 from tom_eso.eso import ESOObservationForm, ESOFacility
+from tom_eso.models import ESOProfile
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -95,3 +99,15 @@ def show_observation_block(request):
             f'<iframe id="id_eso_p2_tool_iframe" height=100% width="100%" src="{iframe_url}">'
             f'</iframe></div>')
     return HttpResponse(html)
+
+
+class ProfileUpdateView(UpdateView):
+    """
+    View that handles updating of a user's ``ESOProfile``.
+    """
+    model = ESOProfile
+    fields = ['p2_environment', 'p2_username',]
+    template_name = 'tom_eso/eso_update_user_profile.html'
+
+    def get_success_url(self):
+        return reverse_lazy('user-profile')
