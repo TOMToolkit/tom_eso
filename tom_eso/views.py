@@ -104,6 +104,14 @@ def show_observation_block(request):
 class ProfileUpdateView(UpdateView):
     """
     View that handles updating of a user's ``ESOProfile``.
+
+    The ESO Facility has an ``ESOProfile`` model (see ``models.py``). This view updates
+    the properties of that model.
+
+    The ``ESOProfile`` properties are displayed by the ``eso_user_profile.html`` template.
+    This typically happens on the on the User Profile page via the ``show_app_profiles``
+    inclusion tag (see ``tom_base/tom_common/templates/tom_common/user_profile.html`` and
+    ``tom_base/tom_common/templatetags/user_extras.py::show_app_profiles``).
     """
     model = ESOProfile
     fields = ['p2_environment', 'p2_username',]
