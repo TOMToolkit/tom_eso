@@ -34,7 +34,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
         widget=forms.Select(
             # set up attributes to trigger folder dropdown update when this field changes
             attrs={
-                'hx-get': reverse_lazy('observing-run-folders'),  # send GET request to this URL
+                'hx-get': reverse_lazy('tom_eso:observing-run-folders'),  # send GET request to this URL
                 # (the view for this endpoint returns folder names for the selected observing run)
                 'hx-trigger': 'change, load',  # when this happens
                 'hx-target': '#div_id_p2_folder_name',  # replace p2_folder_name div
@@ -57,7 +57,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
         # are updated in the by the htmx attributes on this field's <select> element (below, see widget attrs)
         widget=forms.Select(
             attrs={
-                'hx-get': reverse_lazy('folder-observation-blocks'),  # send GET request to this URL
+                'hx-get': reverse_lazy('tom_eso:folder-observation-blocks'),  # send GET request to this URL
                 # (the view for this endpoint returns items for the selected folder)
                 'hx-trigger': 'change, load',  # when this happens
                 'hx-target': '#div_id_observation_blocks',  # replace HTML element with this id
@@ -74,7 +74,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
             attrs={
                 # these htmx attributes make it such that when you select an observation block, the
                 # iframe is updated with the ESO P2 Tool page for that observation block
-                'hx-get': reverse_lazy('show-observation-block'),  # send GET request to this URL
+                'hx-get': reverse_lazy('tom_eso:show-observation-block'),  # send GET request to this URL
                 # (the view for this endpoint returns folder items for the selected folder)
                 'hx-trigger': 'change, load',  # when this happens
                 'hx-indicator': '#spinner',  # show spinner while waiting for response
