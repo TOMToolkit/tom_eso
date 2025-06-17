@@ -4,7 +4,7 @@ from tom_eso.models import ESOProfile
 
 class ESOProfileForm(forms.ModelForm):
     p2_password = forms.CharField(
-        #widget=forms.PasswordInput,
+        # widget=forms.PasswordInput,
         required=False,
         label="ESO Phase 2 Tool Password",
         help_text="Enter your Phase 2 Tool password."
