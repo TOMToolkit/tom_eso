@@ -96,6 +96,7 @@ class ESOAPI(object):
                                    for folder in items_in_run_container if folder['itemType'] == 'Folder']
             return folder_name_choices
 
+        # TODO: consider renaming this to folder_content_choices
         def folder_item_choices(self, folder_id):
             """Return a list of tuples for the ESO Phase 2 folder items available to the user.
             (These are the items in the selected Folder).

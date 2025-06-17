@@ -19,11 +19,13 @@
         </p>
         <hr />
         <dl class="row">
-            {% for key, value in eso_profile_data.items %} {% if value %}
-            <dt class="col-sm-6">{% verbose_name user key %}</dt>
-            <dd class="col-sm-6">{{ value }}</dd>
-            {% endif %} {% empty %}
-            <p>No ESO Profile items yet for this user.</p>
+            {% for key, value in eso_profile_data.items %}
+                {% if value %}
+                    <dt class="col-sm-6">{% verbose_name user key %}</dt>
+                    <dd class="col-sm-6">{{ value }}</dd>
+                {% endif %}
+                {% empty %}
+                    <p>No ESO Profile items yet for this user.</p>
             {% endfor %}
         </dl>
     </div>

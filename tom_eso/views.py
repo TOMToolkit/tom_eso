@@ -1,4 +1,7 @@
 import logging
+
+from cryptography.fernet import Fernet
+
 # from django.shortcuts import render
 from django.http import HttpResponse
 from django.views.generic.edit import UpdateView
@@ -6,9 +9,12 @@ from django.urls import reverse_lazy
 
 from crispy_forms.templatetags.crispy_forms_filters import as_crispy_field
 
+from tom_common.session_utils import extract_key_from_session_store
+
 from tom_eso.eso_api import ESOAPI
 from tom_eso.eso import ESOObservationForm, ESOFacility
 from tom_eso.models import ESOProfile
+from tom_eso.forms import ESOProfileForm
 
 
 logger = logging.getLogger(__name__)
@@ -114,8 +120,19 @@ class ProfileUpdateView(UpdateView):
     ``tom_base/tom_common/templatetags/user_extras.py::show_app_profiles``).
     """
     model = ESOProfile
-    fields = ['p2_environment', 'p2_username',]
     template_name = 'tom_eso/eso_update_user_profile.html'
+
+    # we need a custom form class to handle the encrypted field
+    form_class = ESOProfileForm
+
+    def get_form_kwargs(self):
+        """Pass the cipher to the form."""
+        kwargs = super().get_form_kwargs()
+
+        session_store = self.request.session
+        cipher_key = extract_key_from_session_store(session_store)
+        kwargs['initial'] = {'cipher': Fernet(cipher_key)}
+        return kwargs
 
     def get_success_url(self):
         return reverse_lazy('user-profile')
