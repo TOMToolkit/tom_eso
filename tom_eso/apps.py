@@ -1,5 +1,6 @@
 
 import logging
+from typing import List
 
 from django.apps import AppConfig
 from django.core.exceptions import ImproperlyConfigured
@@ -61,8 +62,7 @@ class TomEsoConfig(AppConfig):
         - encoding_cipher: Fernet - The Fernet cipher used to encrypt the new values.
 
         """
-
-        encrypted_field_containing_models = ['ESOProfile']  # List of app-specific models with encrypted fields
+        encrypted_field_containing_models: List[str] = ['ESOProfile']  # app-specific models with encrypted fields
 
         for encrypted_field_containing_model in encrypted_field_containing_models:
             model_class = self.get_model(encrypted_field_containing_model)  # app-specific Profile model class
