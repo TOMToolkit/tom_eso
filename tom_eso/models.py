@@ -1,35 +1,16 @@
 import logging
 from enum import Enum
-from cryptography.fernet import Fernet
-from django.db import models
-from django.contrib.auth.models import User
 from typing import List, Tuple
 
+from cryptography.fernet import Fernet
+
+from django.db import models
+from django.contrib.auth.models import User
+
+from tom_common.models import EncryptedBinaryField
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-class EncryptedBinaryField(models.BinaryField):
-    """A BinaryField that encrypts and decrypts its value using a Fernet cipher.
-
-    This field is designed to securely store sensitive information by encrypting it before saving to the database
-    and decrypting it when accessed.
-    """
-    def __init__(self, *args, **kwargs):
-        """Wrap the BinaryField class to extend the constructor and the two new properties:
-
-            :param encrypted: A boolean indicating whether the field should be encrypted.
-            :param property_name: The name of the property (setter and getter) that will be used to set and get
-            the encrypted value.
-
-        The new properties are used by tom_common/session_utils.py to update each INSTALLED_APP's encrypted fields
-        when the User changes their password.
-        """
-        # pop the encrypted and property_name from kwargs before calling super()
-        self.encrypted: bool = kwargs.pop('encrypted', False)
-        self.property_name: str = kwargs.pop('property_name', None)
-        super().__init__(*args, **kwargs)
 
 
 class ESOP2Environment(Enum):
