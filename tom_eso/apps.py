@@ -6,7 +6,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.urls import path, include
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class TomEsoConfig(AppConfig):
