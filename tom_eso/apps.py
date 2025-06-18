@@ -1,10 +1,10 @@
 
 import logging
-from typing import List
 
 from django.apps import AppConfig
-from django.core.exceptions import ImproperlyConfigured
 from django.urls import path, include
+
+from tom_common.app_config_utils import auto_reencrypt_model_instances_for_user
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -53,48 +53,17 @@ class TomEsoConfig(AppConfig):
         """Integration point for re-encrypting any encrypted fields any of this
         app's models. This method is called when the user changes their password.
 
-        As currently implemented, this method must know which of the app's models
-        have encrypted and call that models `reencrypt_model_fields` method.
-
         parameters:
         - user: User - The user whose profile fields need to be re-encrypted.
         - decoding_cipher: Fernet - The Fernet cipher used to decrypt the existing values.
         - encoding_cipher: Fernet - The Fernet cipher used to encrypt the new values.
 
+        This implementation uses the centralized helper in tom_common.app_config_utils.py.
         """
-        encrypted_field_containing_models: List[str] = ['ESOProfile']  # app-specific models with encrypted fields
-
-        for encrypted_field_containing_model in encrypted_field_containing_models:
-            model_class = self.get_model(encrypted_field_containing_model)  # app-specific model class
-            try:
-                model_instance = model_class.objects.get(user=user)  # CAUTION: assumes a user field exists in the model
-            except model_class.DoesNotExist:
-                logger.error(f'No {encrypted_field_containing_model} found for user {user.username}')
-                return  # early return
-
-            model_instance.reencrypt_model_fields(decoding_cipher=decoding_cipher, encoding_cipher=encoding_cipher)
-
-    # TODO: move this information in to the ESOProfile model
-    def encrypted_profile_fields(self, *args, **kwargs):
-        """
-        Integration point for adding fields to be encrypted in the user profile.
-
-        Find the encrypted fields by examining the model and returning a list of the
-        names of the setters and getters for the fields with encrypted=True. These
-        fields must have a property_name attribute that matches the name of the
-        setter and getter.
-
-        See the ESOProfile model in `tom_eso.models` for an example.
-        """
-        encrypted_fields = []
-
-        # this method knows about the app-specific Profile model
-        model = self.get_model('ESOProfile')  # app-specific Profile model
-        for field in model._meta.fields:
-            if getattr(field, 'encrypted', False):
-                try:
-                    encrypted_fields.append(field)
-                except AttributeError:
-                    raise ImproperlyConfigured(
-                        f'ESOProfile field {field.name} is encrypted, but does not have a property_name attribute.')
-        return encrypted_fields  # List of model.Field subclass instances
+        auto_reencrypt_model_instances_for_user(
+            app_config=self,
+            user=user,
+            decoding_cipher=decoding_cipher,
+            encoding_cipher=encoding_cipher,
+            user_relation_field_name='user'  # name of the Model field link to the User model
+        )
