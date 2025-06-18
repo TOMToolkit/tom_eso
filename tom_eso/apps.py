@@ -65,9 +65,9 @@ class TomEsoConfig(AppConfig):
         encrypted_field_containing_models: List[str] = ['ESOProfile']  # app-specific models with encrypted fields
 
         for encrypted_field_containing_model in encrypted_field_containing_models:
-            model_class = self.get_model(encrypted_field_containing_model)  # app-specific Profile model class
+            model_class = self.get_model(encrypted_field_containing_model)  # app-specific model class
             try:
-                model_instance = model_class.objects.get(user=user)  # CAUTION: Profile specific (assumes a user field)
+                model_instance = model_class.objects.get(user=user)  # CAUTION: assumes a user field exists in the model
             except model_class.DoesNotExist:
                 logger.error(f'No {encrypted_field_containing_model} found for user {user.username}')
                 return  # early return
