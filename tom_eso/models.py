@@ -2,12 +2,10 @@ import logging
 from enum import Enum
 from typing import List, Tuple
 
-from cryptography.fernet import Fernet
-
 from django.db import models
 from django.contrib.auth.models import User
 
-from tom_common.models import EncryptedBinaryField, EncryptableModelMixin
+from tom_common.models import EncryptableModelMixin, EncryptedProperty
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -33,16 +31,12 @@ class ESOP2Environment(Enum):
 class ESOProfile(EncryptableModelMixin, models.Model):
     """User Profile for ESO Facility.
 
-    This model contains an encrypted field to hold the User's Phase 2 password.
-
-    In general, to setup and encrypted field, you need to:
-    1. Subclass EncryptableModelMixin for access to encryption methods
-    2. Add an EncryptedBinaryField to the model
-    2. Add a `property_name` named argument to the EncryptedBinaryField
-    3. Add an `encrypted=True` named argument to the EncryptedBinaryField
-    4. Add a setter and getter to the model that matches the `property_name`
-
-    See the `p2_password` field for an example.
+    This model contains an encrypted property to hold the User's Phase 2 password.
+    To set up an encrypted property:
+    1. Subclass EncryptableModelMixin.
+    2. Add a models.BinaryField to store the raw encrypted data (e.g., `_p2_password_encrypted`).
+    3. Add an EncryptedProperty descriptor that points to the binary field
+       (e.g., `p2_password = EncryptedProperty('_p2_password_encrypted')`).
     """
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -57,27 +51,8 @@ class ESOProfile(EncryptableModelMixin, models.Model):
                                    default='520520',
                                    null=True, blank=True)
 
-    _ciphertext_p2_password = EncryptedBinaryField(null=True, blank=True,
-                                                   property_name='p2_password',
-                                                   encrypted=True)  # see setter/getter below
-
-    def get_p2_password(self, cipher: Fernet) -> str:
-        """Return the Phase 2 password decrypted using the provided cipher
-
-        IMPORTANT: the name of this method must match the property_name of the corresponding EncryptedBinaryField.
-        So, because this is the getter for the `p2_password` EncryptedBinaryField,
-        it must be named `get_p2_password`. It now uses the helper from EncryptableModelMixin.
-        """
-        return self._generic_decrypt(self._ciphertext_p2_password, cipher)
-
-    def set_p2_password(self, plaintext_p2_password: str, cipher: Fernet) -> None:
-        """Save the Phase 2 password encrypted using the provided cipher
-
-        IMPORTANT: the name of this method must match the property_name of the corresponding EncryptedBinaryField
-        So, because this is the setter for the `p2_password` EncryptedBinaryField,
-        it must be named `set_p2_password`. It now uses the helper from EncryptableModelMixin.
-        """
-        self._ciphertext_p2_password = self._generic_encrypt(plaintext_p2_password, cipher)
+    _p2_password_encrypted = models.BinaryField(null=True, blank=True)  # encrypted data field (private)
+    p2_password = EncryptedProperty('_p2_password_encrypted')  # descriptor that provides access (public)
 
     def __str__(self) -> str:
         return f'{self.user.username} ESO Profile: {self.p2_username}'

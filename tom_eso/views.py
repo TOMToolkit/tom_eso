@@ -9,7 +9,7 @@ from django.urls import reverse_lazy
 
 from crispy_forms.templatetags.crispy_forms_filters import as_crispy_field
 
-from tom_common.session_utils import extract_key_from_session_store
+from tom_common.session_utils import get_key_from_session_store
 
 from tom_eso.eso_api import ESOAPI
 from tom_eso.eso import ESOObservationForm, ESOFacility
@@ -130,7 +130,7 @@ class ProfileUpdateView(UpdateView):
         kwargs = super().get_form_kwargs()
 
         session_store = self.request.session
-        cipher_key = extract_key_from_session_store(session_store)
+        cipher_key = get_key_from_session_store(session_store)
         kwargs['initial'] = {'cipher': Fernet(cipher_key)}
         return kwargs
 

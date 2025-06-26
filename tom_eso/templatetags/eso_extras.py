@@ -8,7 +8,7 @@ from django.contrib.sessions.models import Session
 from django.contrib.sessions.backends.db import SessionStore
 
 from tom_common.models import UserSession
-from tom_common.session_utils import extract_key_from_session_store
+from tom_common.session_utils import get_key_from_session_store
 
 from tom_eso.models import ESOProfile
 
@@ -24,48 +24,38 @@ def eso_profile_data(user):
     """
     Returns the app specific user information as a dictionary to be used in the context of the above partial.
     """
-    exclude_fields = ['user', 'id']
     try:
-        eso_profile_data = model_to_dict(user.esoprofile, exclude=exclude_fields)
-        eso_profile_data['p2_password'] = 'set me!'
+        profile = user.esoprofile
+    except ESOProfile.DoesNotExist:
+        profile = ESOProfile.objects.create(user=user)
 
-        # Extract the p2_password from the ESOProfile model and put it in the eso_profile_data dict
-        # first get the cipher_key from the session
+    # Get the basic profile data, excluding the raw encrypted field
+    exclude_fields = ['user', 'id', '_p2_password_encrypted']
+    eso_profile_data = model_to_dict(profile, exclude=exclude_fields)
+
+    # Now, try to decrypt the password. Default to a placeholder if decryption fails.
+    decrypted_password = "[Password not available]"
+
+    try:
+        # Get the session and create a cipher
         session: Session = UserSession.objects.get(user=user).session
         session_store: SessionStore = SessionStore(session_key=session.session_key)
-        cipher_key: bytes = extract_key_from_session_store(session_store)
-        logger.debug(f'cipher_key: {cipher_key}')
+        cipher_key: bytes = get_key_from_session_store(session_store)
         cipher = Fernet(cipher_key)
-        logger.debug(f'cipher: {cipher}')
 
-        eso_profile_data['p2_password'] = user.esoprofile.get_p2_password(cipher=cipher)
-        logger.debug(f'eso_profile_data: {eso_profile_data}')
+        # Attach the cipher, get the value, and then clean up
+        profile._cipher = cipher
+        decrypted_password = profile.p2_password
 
-        # logger.debug(f'_ciphertext_p2_password: {user.esoprofile._ciphertext_p2_password.get_default()}')
-        # if user.esoprofile._ciphertext_p2_password.get_default():
-        #     # add the encrypted fields to the eso_profile_data dict
-        #     # for now, get the encrypted fields from the ESOProfile model,
-        #     # decrypt them, and add them to the eso_profile_data dict
-        #     session: Session = UserSession.objects.get(user=user).session
-        #     cipher_key: bytes = extract_key_from_session(session)
-        #     logger.debug(f'cipher_key: {cipher_key}')
-        #     cipher = Fernet(cipher_key)
-        #     eso_profile_data['p2_password'] = user.esoprofile.get_p2_password(cipher=cipher)
-        #     logger.debug(f'eso_profile_data: {eso_profile_data}')
-        # else:
-        #     eso_profile_data['p2_password'] = 'set me!'
+    except (UserSession.DoesNotExist, KeyError) as e:
+        logger.warning(f"Could not get encryption key for user {user.username} to display password: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while decrypting password for user {user.username}: {e}")
+    finally:
+        # Ensure the temporary cipher is always removed from the instance
+        if hasattr(profile, '_cipher'):
+            del profile._cipher
 
-        context = {
-            'user': user,
-            'eso_profile': user.esoprofile,
-            'eso_profile_data': eso_profile_data,
-        }
+    eso_profile_data['p2_password'] = decrypted_password
 
-    except ESOProfile.DoesNotExist:
-        ESOProfile.objects.create(user=user)
-        context = {
-            'user': user,
-            'eso_profile': user.esoprofile,
-            'eso_profile_data': {}
-        }
-    return context
+    return {'user': user, 'eso_profile': profile, 'eso_profile_data': eso_profile_data}

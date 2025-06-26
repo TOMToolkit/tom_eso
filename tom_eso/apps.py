@@ -4,7 +4,6 @@ import logging
 from django.apps import AppConfig
 from django.urls import path, include
 
-from tom_common.app_config_utils import auto_reencrypt_model_instances_for_user
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -46,24 +45,3 @@ class TomEsoConfig(AppConfig):
             }
         ]
         return profile_config
-
-    # User-specfic TOMToolkit Integration Points
-
-    def reencrypt_app_fields(self, user, decoding_cipher, encoding_cipher):
-        """Integration point for re-encrypting any encrypted fields any of this
-        app's models. This method is called when the user changes their password.
-
-        parameters:
-        - user: User - The user whose profile fields need to be re-encrypted.
-        - decoding_cipher: Fernet - The Fernet cipher used to decrypt the existing values.
-        - encoding_cipher: Fernet - The Fernet cipher used to encrypt the new values.
-
-        This implementation uses the centralized helper in tom_common.app_config_utils.py.
-        """
-        auto_reencrypt_model_instances_for_user(
-            app_config=self,
-            user=user,
-            decoding_cipher=decoding_cipher,
-            encoding_cipher=encoding_cipher,
-            user_relation_field_name='user'  # name of the Model field link to the User model
-        )
