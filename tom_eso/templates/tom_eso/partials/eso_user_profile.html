@@ -1,5 +1,3 @@
-{% load tom_common_extras %}
-
 <div class="card">
     <div class="card-header bg-dark text-light">
         <div style="display: flex; justify-content: space-between">
@@ -15,14 +13,14 @@
     </div>
     <div class="card-body">
         <p>
-            This is a great place to store user information specific to the ESO Facility.
+            ESO P2 Tool Configuraton and Credentials
         </p>
         <hr />
         <dl class="row">
-            {% for key, value in eso_profile_data.items %}
-                {% if value %}
-                    <dt class="col-sm-6">{% verbose_name user key %}</dt>
-                    <dd class="col-sm-6">{{ value }}</dd>
+            {% for field_data in profile_data_list %}
+                {% if field_data.value %}
+                    <dt class="col-sm-6">{{ field_data.label }}</dt>
+                    <dd class="col-sm-6">{{ field_data.value }}</dd>
                 {% endif %}
                 {% empty %}
                     <p>No ESO Profile items yet for this user.</p>

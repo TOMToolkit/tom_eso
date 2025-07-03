@@ -31,6 +31,10 @@ class ESOP2Environment(Enum):
 class ESOProfile(EncryptableModelMixin, models.Model):
     """User Profile for ESO Facility.
 
+    Set the `verbose_name` Field parameter to control the way the field is
+    displayed by the Profile partial
+    (see `tom_eso/tom_eso/templates/tom_eso/partials/eso_user_partial.html`)
+
     This model contains an encrypted property to hold the User's Phase 2 password.
     To set up an encrypted property:
     1. Subclass EncryptableModelMixin.
@@ -39,17 +43,20 @@ class ESOProfile(EncryptableModelMixin, models.Model):
        (e.g., `p2_password = EncryptedProperty('_p2_password_encrypted')`).
     """
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # The `user` field (a OneToOneField to the User model) is inherited from
+    # the EncryptableModelMixin and should not be redefined here.
 
     p2_environment = models.CharField(
         max_length=32,
         choices=ESOP2Environment.choices(),
         default=ESOP2Environment.DEMO.value,
+        verbose_name='P2 Environment'
     )
 
     p2_username = models.CharField(max_length=255,
                                    default='520520',
-                                   null=True, blank=True)
+                                   null=True, blank=True,
+                                   verbose_name='P2 Username')
 
     _p2_password_encrypted = models.BinaryField(null=True, blank=True)  # encrypted data field (private)
     p2_password = EncryptedProperty('_p2_password_encrypted')  # descriptor that provides access (public)
