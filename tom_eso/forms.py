@@ -7,8 +7,8 @@ class ESOProfileForm(forms.ModelForm):
 
     # even though this is a ModelForm (and we automatically have forms.Fields for
     # each ESOProfile model field), we have to add CharFields for any encrypted
-    # fields because they exist in the model a combination property descriptor and
-    # BinaryField. )
+    # fields because they exist in the model as a combination property descriptor
+    # and BinaryField. )
     p2_password = forms.CharField(
         required=False,
         label="P2 password",
