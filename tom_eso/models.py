@@ -3,7 +3,6 @@ from enum import Enum
 from typing import List, Tuple
 
 from django.db import models
-from django.contrib.auth.models import User
 
 from tom_common.models import EncryptableModelMixin, EncryptedProperty
 
