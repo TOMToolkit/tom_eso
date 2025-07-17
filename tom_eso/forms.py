@@ -1,6 +1,6 @@
 from django import forms
 from tom_eso.models import ESOProfile
-from tom_common.session_utils import set_encrypted_field
+from tom_common.session_utils import set_encrypted_field, get_encrypted_field
 
 
 class ESOProfileForm(forms.ModelForm):
@@ -15,6 +15,13 @@ class ESOProfileForm(forms.ModelForm):
         help_text="Enter your Phase 2 Tool password. Leave blank to keep unchanged."
     )
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        # set the initial value of the p2_password CharField
+        if self.instance and self.instance.pk:
+            self.fields['p2_password'].initial = get_encrypted_field(self.user, self.instance, 'p2_password')
+
     class Meta:
         model = ESOProfile
         fields = ['p2_environment', 'p2_username', 'p2_password']
@@ -26,6 +33,7 @@ class ESOProfileForm(forms.ModelForm):
         instance = super().save(commit=False)
 
         cleaned_p2_password = self.cleaned_data.get('p2_password')
+        # only update the p2_password if a new one is provided (cleaned_p2_password of '' is False)
         if cleaned_p2_password:
             # The user object is available from the instance
             user = instance.user

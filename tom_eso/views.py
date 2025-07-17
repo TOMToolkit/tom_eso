@@ -121,5 +121,12 @@ class ProfileUpdateView(UpdateView):
     # we need a custom form class to handle the encrypted field
     form_class = ESOProfileForm
 
+    def get_form_kwargs(self):
+        """Extend the UpdateView.get_form_kwargs to pass the logged-in User to the form
+        """
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
     def get_success_url(self):
         return reverse_lazy('user-profile')
