@@ -1828,14 +1828,14 @@ test = ["pytest", "tornado (>=4.5)", "typeguard"]
 
 [[package]]
 name = "tomtoolkit"
-version = "2.25.0"
+version = "2.25.2"
 description = "TOM Toolkit and base modules"
 optional = false
 python-versions = "<3.13,>=3.9.0"
 groups = ["main"]
 files = [
-    {file = "tomtoolkit-2.25.0-py3-none-any.whl", hash = "sha256:2ea807f1d71424d69bfc31530df656ed879983ec24a111b711f977edbc845188"},
-    {file = "tomtoolkit-2.25.0.tar.gz", hash = "sha256:c8effdeee93941cfbbbdb38dcfa3b91d6556502987ed4a49310fff39561b17ef"},
+    {file = "tomtoolkit-2.25.2-py3-none-any.whl", hash = "sha256:b6dd09d1e6e02e250c56994361a68502de9acfd52b03380fe453d8290094997a"},
+    {file = "tomtoolkit-2.25.2.tar.gz", hash = "sha256:b8df94427aa86d7f83d48ebcfccc7e802c26d5f21179651685c67240c1450164"},
 ]
 
 [package.dependencies]
@@ -1847,6 +1847,7 @@ astropy = [
 astroquery = "<1"
 beautifulsoup4 = "<5"
 crispy-bootstrap4 = ">=2023.1,<2024.11"
+cryptography = "<=46"
 django = "<5"
 django-bootstrap4 = ">3,<25"
 django-contrib-comments = ">=2.0,<3.0"
