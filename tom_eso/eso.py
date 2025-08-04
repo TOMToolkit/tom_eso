@@ -199,16 +199,14 @@ class ESOFacility(BaseRoboticObservationFacility):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.eso = ESOAPI()
 
-    @classmethod
     def get_p2_tool_url(self,
                         observation_run_id=None,
                         container_id=None,
                         observation_block_id=None):
         """Return the URL for the ESO P2 Tool.
 
-        The URL is constructed using the ESO_ENVIRONMENT from settings.
+        The URL is constructed using the p2_environment attribute from the user's ESOProfile.
         If an observation run ID is provided, the URL will include the observing run ID.
         If an observation block ID is provided, the URL will include the observation block ID.
 
@@ -221,14 +219,17 @@ class ESOFacility(BaseRoboticObservationFacility):
         Observation Blocks take precedence over containers,
         which take precedence over an observing run.
         """
-        # construct the base p2_tool_url using the ESO_ENVIRONMENT from settings
-        if settings.FACILITIES['ESO']['environment'] == 'production':
-            eso_env = ''  # url is https://www.eso.org/p2/home
-        elif settings.FACILITIES['ESO']['environment'] == 'demo':
-            eso_env = 'demo'  # url is https://www.eso.org/p2demo/home
-        else:
-            eso_env = 'demo'  # safest default
-        p2_tool_url = f'https://www.eso.org/p2{eso_env}/home'
+        try:
+            eso_profile = ESOProfile.objects.get(user=self.user)
+            if eso_profile.p2_environment == 'production':
+                eso_env = ''  # url is https://www.eso.org/p2/home
+            elif eso_profile.p2_environment == 'demo':
+                eso_env = 'demo'  # url is https://www.eso.org/p2demo/home
+            else:
+                eso_env = 'demo'  # safest default
+            p2_tool_url = f'https://www.eso.org/p2{eso_env}/home'
+        except ESOProfile.DoesNotExist:
+            p2_tool_url = ''
 
         # if an object ID is provided, add it to the URL
         if observation_block_id:
@@ -251,11 +252,21 @@ class ESOFacility(BaseRoboticObservationFacility):
         p2_tool_url = self.get_p2_tool_url()
 
         # logger.debug(f'ESOFacility.get_facility_context_data facility_context_data: {facility_context_data}')
+
+        # Get ESO username from ESOProfile instead of Django username
+        eso_username = 'Configure ESO P2 Tool Username in ESOProfile'
+        if self.user:
+            try:
+                eso_profile = ESOProfile.objects.get(user=self.user)
+                eso_username = eso_profile.p2_username or 'No ESO username configured. Configure in ESO Profile'
+            except ESOProfile.DoesNotExist:
+                eso_username = 'ESO credentials not configured. Configure in ESO Profile'
+
         new_context_data = {
             'version': __version__,  # from tom_eso/__init__.py
-            'username': settings.FACILITIES['ESO']['username'],
+            'username': eso_username,
             'iframe_url': p2_tool_url,
-            'observation_form': ESOObservationForm,
+            'observation_form': self.get_form(kwargs.get('observation_type')),
         }
         # logger.debug(f'eso new_context_data: {new_context_data}')
 
@@ -311,13 +322,19 @@ class ESOFacility(BaseRoboticObservationFacility):
         target_id = observation_payload['target_id']
         target = Target.objects.get(pk=target_id)
 
-        new_observation_block = self.eso.create_observation_block(
-            folder_id=observation_payload['params']['p2_folder_name'],
-            ob_name=observation_payload['params']['observation_block_name'],
-            target=target
-        )
-        # TODO: redirect with new observation block id in the ESO P2 Tool iframe
-        logger.debug(f'ESOFacility.submit_new_observation_block new_observation_block: {new_observation_block}')
+        try:
+            eso_profile = ESOProfile.objects.get(user=self.user)
+            eso = ESOAPI(eso_profile.p2_environment, eso_profile.p2_username, eso_profile.p2_password)
+            new_observation_block = eso.create_observation_block(
+                folder_id=observation_payload['params']['p2_folder_name'],
+                ob_name=observation_payload['params']['observation_block_name'],
+                target=target
+            )
+            # TODO: redirect with new observation block id in the ESO P2 Tool iframe
+            logger.debug(f'ESOFacility.submit_new_observation_block new_observation_block: {new_observation_block}')
+        except ESOProfile.DoesNotExist:
+            # Handle the case where the user has no ESOProfile
+            logger.error(f'User {self.user} has no ESOProfile')
 
     def submit_observation(self, observation_payload):
         """For the ESO Facility we're limited to creating new observation blocks for
