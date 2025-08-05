@@ -9,7 +9,9 @@ from django import forms
 from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
 from tom_eso import __version__
 from tom_eso.eso_api import ESOAPI
+from tom_eso.models import ESOProfile
 from tom_targets.models import Target
+from tom_common.session_utils import get_encrypted_field
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +30,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
     p2_observing_run = forms.TypedChoiceField(
         label='Observing Run',
         coerce=int,
-        choices=ESOAPI().observing_run_choices,  # callable to populate choices
+        choices=[],  # populated in __init__ with user credentials
         required=True,
         # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
         widget=forms.Select(
@@ -36,7 +38,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
             attrs={
                 'hx-get': reverse_lazy('tom_eso:observing-run-folders'),  # send GET request to this URL
                 # (the view for this endpoint returns folder names for the selected observing run)
-                'hx-trigger': 'change, load',  # when this happens
+                'hx-trigger': 'change',  # only on change - removed load trigger to avoid empty value issues
                 'hx-target': '#div_id_p2_folder_name',  # replace p2_folder_name div
                 'hx-indicator': '#spinner',  # show spinner while waiting for response
                 # 'hx-indicator': '#div_id_p2_folder_name',  # show spinner while waiting for response
@@ -59,7 +61,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
             attrs={
                 'hx-get': reverse_lazy('tom_eso:folder-observation-blocks'),  # send GET request to this URL
                 # (the view for this endpoint returns items for the selected folder)
-                'hx-trigger': 'change, load',  # when this happens
+                'hx-trigger': 'change',  # only on change - load would be too aggressive here
                 'hx-target': '#div_id_observation_blocks',  # replace HTML element with this id
                 'hx-indicator': '#spinner',  # show spinner while waiting for response
             })
@@ -76,7 +78,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 # iframe is updated with the ESO P2 Tool page for that observation block
                 'hx-get': reverse_lazy('tom_eso:show-observation-block'),  # send GET request to this URL
                 # (the view for this endpoint returns folder items for the selected folder)
-                'hx-trigger': 'change, load',  # when this happens
+                'hx-trigger': 'change',  # only on change - load would be too aggressive here
                 'hx-indicator': '#spinner',  # show spinner while waiting for response
                 'hx-target': '#div_id_eso_p2_tool_iframe',  # replace this div
                 })
@@ -92,8 +94,47 @@ class ESOObservationForm(BaseRoboticObservationForm):
     # 2. __init__()
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        self.eso = ESOAPI()
+        self.eso = None
+
+        if user is None:
+            logger.warning('ESOObservationForm.__init__ called without user context!')
+            self.fields['p2_observing_run'].choices = [(0, 'No user context - please reload page')]
+            return
+
+        try:
+            eso_profile = ESOProfile.objects.get(user=user)
+            p2_environment = eso_profile.p2_environment
+            p2_username = eso_profile.p2_username
+            p2_password = get_encrypted_field(user, eso_profile, 'p2_password')
+
+            self.eso = ESOAPI(p2_environment, p2_username, p2_password)
+            observing_run_choices = self.eso.observing_run_choices()
+
+            if not observing_run_choices:
+                self.fields['p2_observing_run'].choices = [(0, 'No observing runs available')]
+            else:
+                choices_with_empty = [('', 'Please select an Observing Run')] + observing_run_choices
+                self.fields['p2_observing_run'].choices = choices_with_empty
+
+        except ESOProfile.DoesNotExist:
+            from django.urls import reverse
+            profile_url = reverse('profiles:detail', kwargs={'pk': user.pk})
+            self.fields['p2_observing_run'].widget = forms.widgets.TextInput(
+                attrs={
+                    'readonly': True,
+                    'style': 'border:none; background:none; color:red; text-decoration:underline; cursor:pointer;',
+                    'onclick': f"window.location.href='{profile_url}'"
+                }
+            )
+            self.fields['p2_observing_run'].initial = (
+                'You have not configured your ESO credentials. Please click here to add them.'
+            )
+            for field in self.fields:
+                self.fields[field].disabled = True
+        except Exception as ex:
+            logger.error(f'Exception getting ESOProfile data: {ex}')
 
         # This form has a self.helper: crispy_forms.helper.FormHelper attribute.
         # It is set in the BaseRoboticObservationForm class.
@@ -170,6 +211,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
         and it is sufficient to update it's choices for rendering the form, but not for validation.
         That must be done on the instance that is to be validated.)
         """
+        if not self.eso:
+            return False
+
         # extract values from the BoundFields (and use them to update the ChoiceField choices)
         p2_observing_run_id = int(self["p2_observing_run"].value())
         p2_folder_id = int(self["p2_folder_name"].value())

@@ -11,10 +11,10 @@ from tom_eso.eso_api import ESOAPI
 from tom_eso.eso import ESOObservationForm, ESOFacility
 from tom_eso.models import ESOProfile
 from tom_eso.forms import ESOProfileForm
+from tom_common.session_utils import get_encrypted_field
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def folders_for_observing_run(request):
@@ -31,15 +31,51 @@ def folders_for_observing_run(request):
     The ``observing_run_id`` of the selected ``p2_observing_run`` is passed as a URL
     parameter and is thus available from the request.GET QueryDict.
     """
-    # extract the observing run id from the request.GET QueryDict
-    observing_run_id = int(request.GET['p2_observing_run'])
+    # Validate that we have the required GET parameter
+    if 'p2_observing_run' not in request.GET:
+        logger.error(f'Missing p2_observing_run parameter in request: {request.GET}')
+        # Return empty choices if parameter is missing
+        form = ESOObservationForm(user=request.user)  # use request.user instead of None
+        field_html = as_crispy_field(form['p2_folder_name'])
+        return HttpResponse(field_html)
 
-    # Get the folder name choices for the selected observing run
-    # NOTE: this is a potentially slow API call
-    # TODO: considing caching the results
-    folder_name_choices = ESOAPI().folder_name_choices(observing_run_id)
+    try:
+        # extract the observing run id from the request.GET QueryDict
+        observing_run_id = int(request.GET['p2_observing_run'])
+        # Skip processing if it's the default "Please select" value
+        if observing_run_id == 0:
+            form = ESOObservationForm(user=request.user)
+            field_html = as_crispy_field(form['p2_folder_name'])
+            return HttpResponse(field_html)
+    except (ValueError, TypeError):
+        logger.error(f'Invalid p2_observing_run value: {request.GET.get("p2_observing_run")}')
+        # Return empty choices if parameter is invalid
+        form = ESOObservationForm(user=request.user)
+        field_html = as_crispy_field(form['p2_folder_name'])
+        return HttpResponse(field_html)
 
-    form = ESOObservationForm()  # instantiate the UNBOUND form
+    # Get user-specific ESOAPI instance
+    try:
+        eso_profile = ESOProfile.objects.get(user=request.user)
+        p2_environment = eso_profile.p2_environment
+        p2_username = eso_profile.p2_username
+        p2_password = get_encrypted_field(request.user, eso_profile, 'p2_password')
+
+        eso_api = ESOAPI(p2_environment, p2_username, p2_password)
+
+        # Get the folder name choices for the selected observing run
+        # NOTE: this is a potentially slow API call
+        # TODO: consider caching the results
+        folder_name_choices = eso_api.folder_name_choices(observing_run_id)
+
+    except ESOProfile.DoesNotExist:
+        logger.error(f'User {request.user} has no ESOProfile')
+        folder_name_choices = [(0, 'ESO credentials not configured')]
+    except Exception as ex:
+        logger.error(f'Error getting folder choices: {ex}')
+        folder_name_choices = [(0, 'Error loading folders')]
+
+    form = ESOObservationForm(user=request.user)  # instantiate the UNBOUND form with user context
     form.fields['p2_folder_name'].choices = folder_name_choices  # update the choices of the UNBOUND form
 
     # get the HTML for the updated ChoiceField that will update the p2_folder_name in the DOM
@@ -57,23 +93,48 @@ def observation_blocks_for_folder(request):
     The ``folder_items`` MultipleChoiceField's ``choices`` are updated with the folder items
     for the selected Folder, and the <select> element is returned as an <select> HTML element.
     """
+    # Validate that we have the required GET parameter
+    if 'p2_folder_name' not in request.GET:
+        logger.error(f'Missing p2_folder_name parameter in request: {request.GET}')
+        # Return empty choices if parameter is missing
+        form = ESOObservationForm(user=request.user)
+        field_html = as_crispy_field(form['observation_blocks'])
+        return HttpResponse(field_html)
+
     # extract the folder id from the request.GET QueryDict
     try:
         folder_id = int(request.GET['p2_folder_name'])
-    except ValueError as e:
+    except (ValueError, TypeError):
         logger.error(f'folder_id is not an integer: {request.GET["p2_folder_name"]}')
         for key, value in request.GET.items():
             logger.error(f'{key}: {value}')
-        folder_id = 0
-        raise e  # re-raise the exception
+        # Return empty choices if parameter is invalid
+        form = ESOObservationForm(user=request.user)
+        field_html = as_crispy_field(form['observation_blocks'])
+        return HttpResponse(field_html)
 
-    # Get the observation_blocks in the selected folder
-    observation_block_choices = ESOAPI().folder_ob_choices(folder_id)
+    # Get user-specific ESOAPI instance
+    try:
+        eso_profile = ESOProfile.objects.get(user=request.user)
+        p2_environment = eso_profile.p2_environment
+        p2_username = eso_profile.p2_username
+        p2_password = get_encrypted_field(request.user, eso_profile, 'p2_password')
+        eso_api = ESOAPI(p2_environment, p2_username, p2_password)
 
-    form = ESOObservationForm()  # instantiate the UNBOUND form
+        # Get the observation_blocks in the selected folder
+        observation_block_choices = eso_api.folder_ob_choices(folder_id)
+
+    except ESOProfile.DoesNotExist:
+        logger.error(f'User {request.user} has no ESOProfile')
+        observation_block_choices = [(0, 'ESO credentials not configured')]
+    except Exception as ex:
+        logger.error(f'Error getting observation block choices: {ex}')
+        observation_block_choices = [(0, 'Error loading observation blocks')]
+
+    form = ESOObservationForm(user=request.user)  # instantiate the UNBOUND form with user context
     form.fields['observation_blocks'].choices = observation_block_choices  # update the choices of the UNBOUND form
 
-    # now render the field as HTM and return it in the HTTPResponse
+    # now render the field as HTML and return it in the HTTPResponse
     field_html = as_crispy_field(form['observation_blocks'])
     return HttpResponse(field_html)
 
@@ -82,19 +143,32 @@ def show_observation_block(request):
     """When a new observation block is created, this View updates the ESO P2 tool iframe
     to show the new observation block.
     """
+    # Validate that we have the required GET parameter
+    if 'observation_blocks' not in request.GET:
+        logger.error(f'Missing observation_blocks parameter in request: {request.GET}')
+        # Return empty iframe if parameter is missing
+        html = ('<div id="div_id_eso_p2_tool_iframe" style="height:800px;">'
+                '<p>Please select an observation block to view</p></div>')
+        return HttpResponse(html)
+
     # 1. extract the observation block id from the request.GET QueryDict
     # (this is the value associated with the choice in the MultipleChoiceField.choices)
     try:
         observation_block_id = int(request.GET['observation_blocks'])
-    except ValueError as e:
+    except (ValueError, TypeError):
         logger.error(f'ob_id is not an integer: {request.GET["observation_blocks"]}')
         for key, value in request.GET.items():
             logger.error(f'{key}: {value}')
-        observation_block_id = 0
-        raise e  # re-raise the exception
+        # Return error message if parameter is invalid
+        html = ('<div id="div_id_eso_p2_tool_iframe" style="height:800px;">'
+                '<p>Invalid observation block ID</p></div>')
+        return HttpResponse(html)
 
     # get the ESO P2 tool URL for this observation block
-    iframe_url = ESOFacility().get_p2_tool_url(observation_block_id=observation_block_id)
+    # Create facility instance with user context
+    facility = ESOFacility()
+    facility.set_user(request.user)
+    iframe_url = facility.get_p2_tool_url(observation_block_id=observation_block_id)
 
     # replace the hx-target div with the iframe pointed to the new observation block
     html = (f'<div id="div_id_eso_p2_tool_iframe" style="height:800px;">'

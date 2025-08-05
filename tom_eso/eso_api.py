@@ -3,14 +3,10 @@ import logging
 from astropy.coordinates import Angle
 from astropy import units as u
 
-from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
-
 import p1api
 import p2api  # these are the ESO APIs for phase1 and phase2
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 class ESOAPI:
@@ -29,23 +25,11 @@ class ESOAPI:
         self.username = username
         self.password = password
 
-        logger.debug("ESOAPI.__init__: Creating API connections")
-        logger.debug(f"ESOAPI.__init__: environment={environment}")
-        logger.debug(f"ESOAPI.__init__: username={username}")
-        logger.debug(f"ESOAPI.__init__: password={'***' if password else 'None/Empty'}")
-        
         try:
-            logger.debug("ESOAPI.__init__: Creating p1api.ApiConnection...")
             self.api1 = p1api.ApiConnection(self.environment, self.username, self.password)
-            logger.debug("ESOAPI.__init__: p1api.ApiConnection created successfully")
-            
-            logger.debug("ESOAPI.__init__: Creating p2api.ApiConnection...")
             self.api2 = p2api.ApiConnection(self.environment, self.username, self.password)
-            logger.debug("ESOAPI.__init__: p2api.ApiConnection created successfully")
-            
         except Exception as e:
             logger.error(f"ESOAPI.__init__: Error creating API connections: {e}")
-            logger.error(f"ESOAPI.__init__: Exception type: {type(e)}")
             raise
 
     def create_observation_block(self, folder_id, ob_name, target=None):
@@ -78,24 +62,18 @@ class ESOAPI:
         """
         # TODO: this and other methods should be cached
 
-        logger.debug("observing_run_choices: Starting to fetch observing runs")
         OBS_RUN_BLACK_LIST = [60925302, 60925303]
         try:
-            logger.debug("observing_run_choices: Calling self.api2.getRuns()")
             observing_runs, _ = self.api2.getRuns()
-            logger.debug(f"observing_run_choices: Successfully got {len(observing_runs) if observing_runs else 0} runs")
-            logger.debug(f"observing_run_choices: Raw data: {observing_runs}")
         except KeyError as e:
             logger.error(f'observing_run_choices: KeyError: {e}')
             return [(0, 'Are there any observing runs?')]
         except Exception as e:
             logger.error(f'observing_run_choices: Unexpected error: {e}')
-            logger.error(f'observing_run_choices: Exception type: {type(e)}')
             return [(0, f'Error fetching runs: {str(e)}')]
 
         choices = [(int(run['runId']), f"{run['progId']} - {run['telescope']} - {run['instrument']}")
                    for run in observing_runs if not int(run['runId']) in OBS_RUN_BLACK_LIST]
-        logger.debug(f"observing_run_choices: Returning {len(choices)} choices: {choices}")
         return choices
 
     def folder_name_choices(self, observing_run_id):
