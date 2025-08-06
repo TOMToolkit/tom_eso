@@ -40,8 +40,35 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 # (the view for this endpoint returns folder names for the selected observing run)
                 'hx-trigger': 'change',  # only on change - removed load trigger to avoid empty value issues
                 'hx-target': '#div_id_p2_folder_name',  # replace p2_folder_name div
-                'hx-indicator': '#spinner',  # show spinner while waiting for response
-                # 'hx-indicator': '#div_id_p2_folder_name',  # show spinner while waiting for response
+                # Set loading state immediately when request starts
+                'hx-on::before-request': '''
+                    let folder_select = document.querySelector("#id_p2_folder_name");
+                    let spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+                    let spinner_index = 0;
+
+                    function updateSpinner() {
+                        if (folder_select.innerHTML.includes("Loading ESO P2 folders")) {
+                            folder_select.innerHTML =
+                            `<option value="">${spinner_chars[spinner_index]} Loading ESO P2 folders...</option>`;
+                            spinner_index = (spinner_index + 1) % spinner_chars.length;
+                        }
+                    }
+
+                    folder_select.innerHTML =
+                    '<option value="">⠋ Loading ESO P2 folders...</option>';
+                    folder_select.spinner_interval = setInterval(updateSpinner, 150);
+
+                    document.querySelector("#id_observation_blocks").innerHTML =
+                    '<option value="">Please select a Folder</option>';
+                ''',
+                # Clear the spinner animation when request completes
+                'hx-on::after-swap': '''
+                    let folder_select = document.querySelector("#id_p2_folder_name");
+                    if (folder_select.spinner_interval) {
+                        clearInterval(folder_select.spinner_interval);
+                        folder_select.spinner_interval = null;
+                    }
+                ''',
             })
     )
 
@@ -63,7 +90,33 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 # (the view for this endpoint returns items for the selected folder)
                 'hx-trigger': 'change',  # only on change - load would be too aggressive here
                 'hx-target': '#div_id_observation_blocks',  # replace HTML element with this id
-                'hx-indicator': '#spinner',  # show spinner while waiting for response
+                # Set loading state for observation blocks when folder is selected
+                'hx-on::before-request': '''
+                    // here is some javascript for you!!!
+
+
+                    let obs_select = document.querySelector("#id_observation_blocks");
+                    let spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+                    let spinner_index = 0;
+                    function updateObsSpinner() {
+                        if (obs_select.innerHTML.includes("Loading observation blocks")) {
+                            obs_select.innerHTML =
+                            `<option value="">${spinner_chars[spinner_index]} Loading observation blocks...</option>`;
+                            spinner_index = (spinner_index + 1) % spinner_chars.length;
+                        }
+                    }
+                    obs_select.innerHTML =
+                    '<option value="">⠋ Loading observation blocks...</option>';
+                    obs_select.spinner_interval = setInterval(updateObsSpinner, 150);
+                ''',
+                # Clear the spinner animation when request completes
+                'hx-on::after-swap': '''
+                    let obs_select = document.querySelector("#id_observation_blocks");
+                    if (obs_select.spinner_interval) {
+                        clearInterval(obs_select.spinner_interval);
+                        obs_select.spinner_interval = null;
+                    }
+                ''',
             })
     )
 
@@ -75,12 +128,11 @@ class ESOObservationForm(BaseRoboticObservationForm):
         widget=forms.Select(
             attrs={
                 # these htmx attributes make it such that when you select an observation block, the
-                # iframe is updated with the ESO P2 Tool page for that observation block
+                # iframe src is updated to show the selected observation block in the ESO P2 Tool
                 'hx-get': reverse_lazy('tom_eso:show-observation-block'),  # send GET request to this URL
-                # (the view for this endpoint returns folder items for the selected folder)
                 'hx-trigger': 'change',  # only on change - load would be too aggressive here
-                'hx-indicator': '#spinner',  # show spinner while waiting for response
-                'hx-target': '#div_id_eso_p2_tool_iframe',  # replace this div
+                'hx-target': '#id_eso_p2_tool_iframe',  # target the iframe directly
+                'hx-swap': 'outerHTML',  # replace the entire iframe element
                 })
     )
 
@@ -102,6 +154,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
             logger.warning('ESOObservationForm.__init__ called without user context!')
             self.fields['p2_observing_run'].choices = [(0, 'No user context - please reload page')]
             return
+
+        # Show loading message initially with animated spinner
+        self.fields['p2_observing_run'].choices = [('', '⟳ Loading ESO observing runs...')]
 
         try:
             eso_profile = ESOProfile.objects.get(user=user)
@@ -142,23 +197,18 @@ class ESOObservationForm(BaseRoboticObservationForm):
         # For the field htmx, see the widget attrs in the field definitions above.
 
     # 3. now the layout
-    def _get_spinner_image(self):
-        image = 'bluespinner.gif'
-        return f'{{% static "tom_common/img/{image}" %}}'
-
     def layout(self):
         """Define the ESO-specific layout for the form.
 
         This method is called by the BaseObservationForm class's __init__() method as it sets up
         the crispy_forms helper.layout attribute. See the layout() stub in the BaseObservationForm class.
         """
-        spinner_size = 20
         layout = Layout(
-            # the spinner is displayed only while waiting for the response from the ESO P2 API
-            # TODO: make the spinner more obvious
-            HTML((f"{{% load static %}} <img id='spinner' class='htmx-indicator'"
-                  f"width='{spinner_size}' height='{spinner_size}'"
-                  f"src={self._get_spinner_image()}></img>")),
+            # Add CSS animation for rotating spinner (keeping for any future use)
+            HTML('<style>'
+                 '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }'
+                 '.spinner-icon { display: inline-block; animation: spin 1s linear infinite; }'
+                 '</style>'),
             Div(
                 Div('p2_observing_run', css_class='col'),
                 Div('p2_folder_name', css_class='col'),
@@ -182,6 +232,10 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 ),
                 css_class='form-row',
             ),
+
+            # Empty div for iframe area - will be populated by HTMX when observation block is selected
+            HTML('<div id="div_id_eso_p2_tool_iframe"></div>'),
+
             # tom_eso/observation_form.html will add the ESO Phase2 Tool iframe here
         )
         return layout

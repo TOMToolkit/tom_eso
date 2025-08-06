@@ -140,15 +140,14 @@ def observation_blocks_for_folder(request):
 
 
 def show_observation_block(request):
-    """When a new observation block is created, this View updates the ESO P2 tool iframe
-    to show the new observation block.
+    """When an observation block is selected, this View updates the ESO P2 tool iframe
+    to show the selected observation block.
     """
     # Validate that we have the required GET parameter
     if 'observation_blocks' not in request.GET:
         logger.error(f'Missing observation_blocks parameter in request: {request.GET}')
         # Return empty iframe if parameter is missing
-        html = ('<div id="div_id_eso_p2_tool_iframe" style="height:800px;">'
-                '<p>Please select an observation block to view</p></div>')
+        html = '<iframe id="id_eso_p2_tool_iframe" height="100%" width="100%" src="about:blank"></iframe>'
         return HttpResponse(html)
 
     # 1. extract the observation block id from the request.GET QueryDict
@@ -159,9 +158,8 @@ def show_observation_block(request):
         logger.error(f'ob_id is not an integer: {request.GET["observation_blocks"]}')
         for key, value in request.GET.items():
             logger.error(f'{key}: {value}')
-        # Return error message if parameter is invalid
-        html = ('<div id="div_id_eso_p2_tool_iframe" style="height:800px;">'
-                '<p>Invalid observation block ID</p></div>')
+        # Return error iframe if parameter is invalid
+        html = '<iframe id="id_eso_p2_tool_iframe" height="100%" width="100%" src="about:blank"></iframe>'
         return HttpResponse(html)
 
     # get the ESO P2 tool URL for this observation block
@@ -170,10 +168,8 @@ def show_observation_block(request):
     facility.set_user(request.user)
     iframe_url = facility.get_p2_tool_url(observation_block_id=observation_block_id)
 
-    # replace the hx-target div with the iframe pointed to the new observation block
-    html = (f'<div id="div_id_eso_p2_tool_iframe" style="height:800px;">'
-            f'<iframe id="id_eso_p2_tool_iframe" height=100% width="100%" src="{iframe_url}">'
-            f'</iframe></div>')
+    # return just the iframe element with the new URL
+    html = f'<iframe id="id_eso_p2_tool_iframe" height="100%" width="100%" src="{iframe_url}"></iframe>'
     return HttpResponse(html)
 
 
