@@ -2,7 +2,6 @@ import logging
 
 from crispy_forms.layout import Layout, HTML, Submit, ButtonHolder, Div
 
-from django.conf import settings
 from django.urls import reverse_lazy
 from django import forms
 
@@ -423,16 +422,16 @@ class ESOFacility(BaseRoboticObservationFacility):
         # use get() to return the default form class if the observation type is not found
         return self.observation_forms.get(observation_type, ESOObservationForm)
 
-    def data_products(self):
-        pass
+    def data_products(self, observation_id, product_id=None):
+        raise NotImplementedError
 
-    def get_observation_status():
-        pass
+    def get_observation_status(self, observation_id):
+        raise NotImplementedError
 
-    def get_observation_url(self):
-        pass
+    def get_observation_url(self, observation_id):
+        raise NotImplementedError
 
-    def get_observing_sites(self):
+    def get_observing_sites(self):  # type: ignore - base class method return None, which it should not
         # see https://www.eso.org/sci/facilities/paranal/astroclimate/site.html#GeoInfo
         # I don't see an API for this info, so it's hardcoded
         # TODO: get data for all the ESO sites for production
