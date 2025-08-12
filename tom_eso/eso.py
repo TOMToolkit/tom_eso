@@ -134,6 +134,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 'hx-get': reverse_lazy('tom_eso:show-observation-block'),  # send GET request to this URL
                 'hx-trigger': 'change',  # only on change - load would be too aggressive here
                 'hx-target': '#id_eso_p2_tool_iframe',  # target the iframe directly
+
                 'hx-swap': 'outerHTML',  # replace the entire iframe element
 
                 # This script creates and displays a spinner overlay before the request starts.
@@ -276,9 +277,6 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 ),
                 css_class='form-row',
             ),
-
-            # Empty div for iframe area - will be populated by HTMX when observation block is selected
-            HTML('<div id="div_id_eso_p2_tool_iframe"></div>'),
 
             # tom_eso/observation_form.html will add the ESO Phase2 Tool iframe here
         )
@@ -459,14 +457,22 @@ class ESOFacility(BaseRoboticObservationFacility):
     def submit_new_observation_block(self, observation_payload):
         """
         This is called when the user clicks the Create Observation Block button.
+
+        TODO: this fuction needs error checking.
         """
         logger.debug(f'ESOFacility.submit_new_observation_block observation_payload: {observation_payload}')
         target_id = observation_payload['target_id']
         target = Target.objects.get(pk=target_id)
 
+        # without the user and their creds in the ESOProfile we cannot access to the p2api
+        if self.user is None:
+            logger.error('Cannot submist new observation block without user: {self.user}')
+            return  # so early return
+
         try:
             eso_profile = ESOProfile.objects.get(user=self.user)
-            eso = ESOAPI(eso_profile.p2_environment, eso_profile.p2_username, eso_profile.p2_password)
+            decrypted_p2_password = get_encrypted_field(self.user, eso_profile, 'p2_password')
+            eso = ESOAPI(eso_profile.p2_environment, eso_profile.p2_username, decrypted_p2_password)
             new_observation_block = eso.create_observation_block(
                 folder_id=observation_payload['params']['p2_folder_name'],
                 ob_name=observation_payload['params']['observation_block_name'],
@@ -484,6 +490,8 @@ class ESOFacility(BaseRoboticObservationFacility):
 
         For now, the Create Observation Block button routes to here and we call the
         ESOAPI.create_observation_block() method to create the new observation block.
+
+        TODO: we should probably not be overriding this method to accomplish this!!!
         """
         # this method is really just an adaptor to call submit_new_observation_block()
         self.submit_new_observation_block(observation_payload)
