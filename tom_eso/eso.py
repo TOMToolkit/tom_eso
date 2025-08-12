@@ -92,21 +92,23 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 'hx-target': '#div_id_observation_blocks',  # replace HTML element with this id
                 # Set loading state for observation blocks when folder is selected
                 'hx-on::before-request': '''
-                    // here is some javascript for you!!!
-
-
                     let obs_select = document.querySelector("#id_observation_blocks");
                     let spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
                     let spinner_index = 0;
+
                     function updateObsSpinner() {
                         if (obs_select.innerHTML.includes("Loading observation blocks")) {
                             obs_select.innerHTML =
                             `<option value="">${spinner_chars[spinner_index]} Loading observation blocks...</option>`;
+                            // don't count too high; loop back to the beginning via the modulo operator
                             spinner_index = (spinner_index + 1) % spinner_chars.length;
                         }
                     }
-                    obs_select.innerHTML =
-                    '<option value="">⠋ Loading observation blocks...</option>';
+
+                    // this creates the ob_select element so updateObsSpinner function can update it
+                    obs_select.innerHTML = '<option value="">⠋ Loading observation blocks...</option>';
+
+                    // now loop through the spinner_chars
                     obs_select.spinner_interval = setInterval(updateObsSpinner, 150);
                 ''',
                 # Clear the spinner animation when request completes
@@ -133,6 +135,48 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 'hx-trigger': 'change',  # only on change - load would be too aggressive here
                 'hx-target': '#id_eso_p2_tool_iframe',  # target the iframe directly
                 'hx-swap': 'outerHTML',  # replace the entire iframe element
+
+                # This script creates and displays a spinner overlay before the request starts.
+                'hx-on::before-request': '''
+                    let iframeContainer = document.querySelector("#div_id_eso_p2_tool_iframe");
+
+                    // Create the overlay div
+                    let overlay = document.createElement('div');
+                    overlay.id = 'iframe-overlay';
+                    overlay.style.position = 'absolute';
+                    overlay.style.top = '0';
+                    overlay.style.left = '0';
+                    overlay.style.width = '100%';
+                    overlay.style.height = '100%';
+                    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                    overlay.style.zIndex = '10';
+                    overlay.style.display = 'flex';
+                    overlay.style.justifyContent = 'center';
+                    overlay.style.alignItems = 'center';
+                    overlay.style.color = 'white';
+                    overlay.style.fontSize = '3rem';
+
+                    // Create the spinner text element and add it to the overlay
+                    let spinnerText = document.createElement('span');
+                    overlay.appendChild(spinnerText);
+
+                    // Add the overlay to the iframe container
+                    iframeContainer.appendChild(overlay);
+
+                    // Animate the spinner
+                    let spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+                    let spinner_index = 0;
+                    overlay.spinner_interval = setInterval(() => {
+                        spinnerText.textContent = spinner_chars[spinner_index];
+                        spinner_index = (spinner_index + 1) % spinner_chars.length;
+                    }, 150);
+
+                    // The overlay will be removed after 4 seconds.
+                    setTimeout(() => {
+                        clearInterval(overlay.spinner_interval);
+                        overlay.remove();
+                    }, 4000);
+                ''',
                 })
     )
 
