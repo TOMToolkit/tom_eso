@@ -219,7 +219,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
         except ESOProfile.DoesNotExist:
             from django.urls import reverse
-            profile_url = reverse('profiles:detail', kwargs={'pk': user.pk})
+            profile_url = reverse("user-profile")  # this is where they can add credentials
+
+            # hijack this field to provide a link to the profile_url
             self.fields['p2_observing_run'].widget = forms.widgets.TextInput(
                 attrs={
                     'readonly': True,
@@ -227,11 +229,13 @@ class ESOObservationForm(BaseRoboticObservationForm):
                     'onclick': f"window.location.href='{profile_url}'"
                 }
             )
-            self.fields['p2_observing_run'].initial = (
-                'You have not configured your ESO credentials. Please click here to add them.'
-            )
+            self.fields['p2_observing_run'].initial = ('Click to add ESO Credentials.')
+
+            # disable the form fields until the creds are entered
             for field in self.fields:
                 self.fields[field].disabled = True
+            # but don't disable this field because we need the link to work!
+            self.fields['p2_observing_run'].disabled = False
         except Exception as ex:
             logger.error(f'Exception getting ESOProfile data: {ex}')
 
