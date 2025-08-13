@@ -53,7 +53,7 @@ class ESOProfile(EncryptableModelMixin, models.Model):
     )
 
     p2_username = models.CharField(max_length=255,
-                                   default='520520',
+                                   default='52052',
                                    null=True, blank=True,
                                    verbose_name='P2 Username')
 
