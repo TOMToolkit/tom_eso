@@ -12,9 +12,9 @@ Please let us know your use cases.
 
 1. Install the module into your TOM environment:
 
-```shell
-pip install tom-eso
-```
+    ```shell
+    pip install tom-eso
+    ```
 
 You'll want to update your `pyproject.toml` or `requirements.txt` file as well.
 
@@ -36,6 +36,13 @@ You'll want to update your `pyproject.toml` or `requirements.txt` file as well.
         'tom_eso.eso.ESOFacility',
     ]
    ```   
+
+4. Create the ESOProfile tables in your database:
+
+    ```bash
+    $ ./manage.py migrate
+    ```
+
 
 ## Configuration
 
