@@ -1,5 +1,7 @@
 # tom_eso
-European Southern Obervatory Facility modules for TOM Toolkit
+European Southern Obervatory Facility module for TOM Toolkit
+
+NOTE: This TOM Toolkit facility module is in the prototype stage. Any type of feedback is greatly appreciated. Please feel free to create an Issue.
 
 ## Installation
 
