@@ -2,14 +2,15 @@ import logging
 
 from crispy_forms.layout import Layout, HTML, Submit, ButtonHolder, Div
 
-from django.conf import settings
 from django.urls import reverse_lazy
 from django import forms
 
 from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
 from tom_eso import __version__
 from tom_eso.eso_api import ESOAPI
+from tom_eso.models import ESOProfile
 from tom_targets.models import Target
+from tom_common.session_utils import get_encrypted_field
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
     p2_observing_run = forms.TypedChoiceField(
         label='Observing Run',
         coerce=int,
-        choices=ESOAPI().observing_run_choices,  # callable to populate choices
+        choices=[],  # populated in __init__ with user credentials
         required=True,
         # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
         widget=forms.Select(
@@ -36,10 +37,37 @@ class ESOObservationForm(BaseRoboticObservationForm):
             attrs={
                 'hx-get': reverse_lazy('tom_eso:observing-run-folders'),  # send GET request to this URL
                 # (the view for this endpoint returns folder names for the selected observing run)
-                'hx-trigger': 'change, load',  # when this happens
+                'hx-trigger': 'change',  # only on change - on load would be too much
                 'hx-target': '#div_id_p2_folder_name',  # replace p2_folder_name div
-                'hx-indicator': '#spinner',  # show spinner while waiting for response
-                # 'hx-indicator': '#div_id_p2_folder_name',  # show spinner while waiting for response
+                # Set loading state immediately when request starts
+                'hx-on::before-request': '''
+                    let folder_select = document.querySelector("#id_p2_folder_name");
+                    let spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+                    let spinner_index = 0;
+
+                    function updateSpinner() {
+                        if (folder_select.innerHTML.includes("Loading ESO P2 folders")) {
+                            folder_select.innerHTML =
+                            `<option value="">${spinner_chars[spinner_index]} Loading ESO P2 folders...</option>`;
+                            spinner_index = (spinner_index + 1) % spinner_chars.length;
+                        }
+                    }
+
+                    folder_select.innerHTML =
+                    '<option value="">⠋ Loading ESO P2 folders...</option>';
+                    folder_select.spinner_interval = setInterval(updateSpinner, 150);
+
+                    document.querySelector("#id_observation_blocks").innerHTML =
+                    '<option value="">Please select a Folder</option>';
+                ''',
+                # Clear the spinner animation when request completes
+                'hx-on::after-swap': '''
+                    let folder_select = document.querySelector("#id_p2_folder_name");
+                    if (folder_select.spinner_interval) {
+                        clearInterval(folder_select.spinner_interval);
+                        folder_select.spinner_interval = null;
+                    }
+                ''',
             })
     )
 
@@ -59,9 +87,37 @@ class ESOObservationForm(BaseRoboticObservationForm):
             attrs={
                 'hx-get': reverse_lazy('tom_eso:folder-observation-blocks'),  # send GET request to this URL
                 # (the view for this endpoint returns items for the selected folder)
-                'hx-trigger': 'change, load',  # when this happens
+                'hx-trigger': 'change',  # only on change - load would be too aggressive here
                 'hx-target': '#div_id_observation_blocks',  # replace HTML element with this id
-                'hx-indicator': '#spinner',  # show spinner while waiting for response
+                # Set loading state for observation blocks when folder is selected
+                'hx-on::before-request': '''
+                    let obs_select = document.querySelector("#id_observation_blocks");
+                    let spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+                    let spinner_index = 0;
+
+                    function updateObsSpinner() {
+                        if (obs_select.innerHTML.includes("Loading observation blocks")) {
+                            obs_select.innerHTML =
+                            `<option value="">${spinner_chars[spinner_index]} Loading observation blocks...</option>`;
+                            // don't count too high; loop back to the beginning via the modulo operator
+                            spinner_index = (spinner_index + 1) % spinner_chars.length;
+                        }
+                    }
+
+                    // this creates the ob_select element so updateObsSpinner function can update it
+                    obs_select.innerHTML = '<option value="">⠋ Loading observation blocks...</option>';
+
+                    // now loop through the spinner_chars
+                    obs_select.spinner_interval = setInterval(updateObsSpinner, 150);
+                ''',
+                # Clear the spinner animation when request completes
+                'hx-on::after-swap': '''
+                    let obs_select = document.querySelector("#id_observation_blocks");
+                    if (obs_select.spinner_interval) {
+                        clearInterval(obs_select.spinner_interval);
+                        obs_select.spinner_interval = null;
+                    }
+                ''',
             })
     )
 
@@ -73,12 +129,54 @@ class ESOObservationForm(BaseRoboticObservationForm):
         widget=forms.Select(
             attrs={
                 # these htmx attributes make it such that when you select an observation block, the
-                # iframe is updated with the ESO P2 Tool page for that observation block
+                # iframe src is updated to show the selected observation block in the ESO P2 Tool
                 'hx-get': reverse_lazy('tom_eso:show-observation-block'),  # send GET request to this URL
-                # (the view for this endpoint returns folder items for the selected folder)
-                'hx-trigger': 'change, load',  # when this happens
-                'hx-indicator': '#spinner',  # show spinner while waiting for response
-                'hx-target': '#div_id_eso_p2_tool_iframe',  # replace this div
+                'hx-trigger': 'change',  # only on change - load would be too aggressive here
+                'hx-target': '#id_eso_p2_tool_iframe',  # target the iframe directly
+
+                'hx-swap': 'outerHTML',  # replace the entire iframe element
+
+                # This script creates and displays a spinner overlay before the request starts.
+                'hx-on::before-request': '''
+                    let iframeContainer = document.querySelector("#div_id_eso_p2_tool_iframe");
+
+                    // Create the overlay div
+                    let overlay = document.createElement('div');
+                    overlay.id = 'iframe-overlay';
+                    overlay.style.position = 'absolute';
+                    overlay.style.top = '0';
+                    overlay.style.left = '0';
+                    overlay.style.width = '100%';
+                    overlay.style.height = '100%';
+                    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                    overlay.style.zIndex = '10';
+                    overlay.style.display = 'flex';
+                    overlay.style.justifyContent = 'center';
+                    overlay.style.alignItems = 'center';
+                    overlay.style.color = 'white';
+                    overlay.style.fontSize = '3rem';
+
+                    // Create the spinner text element and add it to the overlay
+                    let spinnerText = document.createElement('span');
+                    overlay.appendChild(spinnerText);
+
+                    // Add the overlay to the iframe container
+                    iframeContainer.appendChild(overlay);
+
+                    // Animate the spinner
+                    let spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+                    let spinner_index = 0;
+                    overlay.spinner_interval = setInterval(() => {
+                        spinnerText.textContent = spinner_chars[spinner_index];
+                        spinner_index = (spinner_index + 1) % spinner_chars.length;
+                    }, 150);
+
+                    // The overlay will be removed after 4 seconds.
+                    setTimeout(() => {
+                        clearInterval(overlay.spinner_interval);
+                        overlay.remove();
+                    }, 4000);
+                ''',
                 })
     )
 
@@ -92,8 +190,54 @@ class ESOObservationForm(BaseRoboticObservationForm):
     # 2. __init__()
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        self.eso = ESOAPI()
+        self.eso = None
+
+        if user is None:
+            logger.warning('ESOObservationForm.__init__ called without user context!')
+            self.fields['p2_observing_run'].choices = [(0, 'No user context - please reload page')]
+            return
+
+        # Show loading message initially with animated spinner
+        self.fields['p2_observing_run'].choices = [('', '⟳ Loading ESO observing runs...')]
+
+        try:
+            eso_profile = ESOProfile.objects.get(user=user)
+            p2_environment = eso_profile.p2_environment
+            p2_username = eso_profile.p2_username
+            p2_password = get_encrypted_field(user, eso_profile, 'p2_password')
+
+            self.eso = ESOAPI(p2_environment, p2_username, p2_password)
+            observing_run_choices = self.eso.observing_run_choices()
+
+            if not observing_run_choices:
+                self.fields['p2_observing_run'].choices = [(0, 'No observing runs available')]
+            else:
+                choices_with_empty = [('', 'Please select an Observing Run')] + observing_run_choices
+                self.fields['p2_observing_run'].choices = choices_with_empty
+
+        except ESOProfile.DoesNotExist:
+            from django.urls import reverse
+            profile_url = reverse("user-profile")  # this is where they can add credentials
+
+            # hijack this field to provide a link to the profile_url
+            self.fields['p2_observing_run'].widget = forms.widgets.TextInput(
+                attrs={
+                    'readonly': True,
+                    'style': 'border:none; background:none; color:red; text-decoration:underline; cursor:pointer;',
+                    'onclick': f"window.location.href='{profile_url}'"
+                }
+            )
+            self.fields['p2_observing_run'].initial = ('Click to add ESO Credentials.')
+
+            # disable the form fields until the creds are entered
+            for field in self.fields:
+                self.fields[field].disabled = True
+            # but don't disable this field because we need the link to work!
+            self.fields['p2_observing_run'].disabled = False
+        except Exception as ex:
+            logger.error(f'Exception getting ESOProfile data: {ex}')
 
         # This form has a self.helper: crispy_forms.helper.FormHelper attribute.
         # It is set in the BaseRoboticObservationForm class.
@@ -101,23 +245,18 @@ class ESOObservationForm(BaseRoboticObservationForm):
         # For the field htmx, see the widget attrs in the field definitions above.
 
     # 3. now the layout
-    def _get_spinner_image(self):
-        image = 'bluespinner.gif'
-        return f'{{% static "tom_common/img/{image}" %}}'
-
     def layout(self):
         """Define the ESO-specific layout for the form.
 
         This method is called by the BaseObservationForm class's __init__() method as it sets up
         the crispy_forms helper.layout attribute. See the layout() stub in the BaseObservationForm class.
         """
-        spinner_size = 20
         layout = Layout(
-            # the spinner is displayed only while waiting for the response from the ESO P2 API
-            # TODO: make the spinner more obvious
-            HTML((f"{{% load static %}} <img id='spinner' class='htmx-indicator'"
-                  f"width='{spinner_size}' height='{spinner_size}'"
-                  f"src={self._get_spinner_image()}></img>")),
+            # Add CSS animation for rotating spinner (keeping for any future use)
+            HTML('<style>'
+                 '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }'
+                 '.spinner-icon { display: inline-block; animation: spin 1s linear infinite; }'
+                 '</style>'),
             Div(
                 Div('p2_observing_run', css_class='col'),
                 Div('p2_folder_name', css_class='col'),
@@ -141,6 +280,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
                 ),
                 css_class='form-row',
             ),
+
             # tom_eso/observation_form.html will add the ESO Phase2 Tool iframe here
         )
         return layout
@@ -170,6 +310,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
         and it is sufficient to update it's choices for rendering the form, but not for validation.
         That must be done on the instance that is to be validated.)
         """
+        if not self.eso:
+            return False
+
         # extract values from the BoundFields (and use them to update the ChoiceField choices)
         p2_observing_run_id = int(self["p2_observing_run"].value())
         p2_folder_id = int(self["p2_folder_name"].value())
@@ -199,16 +342,14 @@ class ESOFacility(BaseRoboticObservationFacility):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.eso = ESOAPI()
 
-    @classmethod
     def get_p2_tool_url(self,
                         observation_run_id=None,
                         container_id=None,
                         observation_block_id=None):
         """Return the URL for the ESO P2 Tool.
 
-        The URL is constructed using the ESO_ENVIRONMENT from settings.
+        The URL is constructed using the p2_environment attribute from the user's ESOProfile.
         If an observation run ID is provided, the URL will include the observing run ID.
         If an observation block ID is provided, the URL will include the observation block ID.
 
@@ -221,14 +362,17 @@ class ESOFacility(BaseRoboticObservationFacility):
         Observation Blocks take precedence over containers,
         which take precedence over an observing run.
         """
-        # construct the base p2_tool_url using the ESO_ENVIRONMENT from settings
-        if settings.FACILITIES['ESO']['environment'] == 'production':
-            eso_env = ''  # url is https://www.eso.org/p2/home
-        elif settings.FACILITIES['ESO']['environment'] == 'demo':
-            eso_env = 'demo'  # url is https://www.eso.org/p2demo/home
-        else:
-            eso_env = 'demo'  # safest default
-        p2_tool_url = f'https://www.eso.org/p2{eso_env}/home'
+        try:
+            eso_profile = ESOProfile.objects.get(user=self.user)
+            if eso_profile.p2_environment == 'production':
+                eso_env = ''  # url is https://www.eso.org/p2/home
+            elif eso_profile.p2_environment == 'demo':
+                eso_env = 'demo'  # url is https://www.eso.org/p2demo/home
+            else:
+                eso_env = 'demo'  # safest default
+            p2_tool_url = f'https://www.eso.org/p2{eso_env}/home'
+        except ESOProfile.DoesNotExist:
+            p2_tool_url = ''
 
         # if an object ID is provided, add it to the URL
         if observation_block_id:
@@ -251,11 +395,21 @@ class ESOFacility(BaseRoboticObservationFacility):
         p2_tool_url = self.get_p2_tool_url()
 
         # logger.debug(f'ESOFacility.get_facility_context_data facility_context_data: {facility_context_data}')
+
+        # Get ESO username from ESOProfile instead of Django username
+        eso_username = 'Configure ESO P2 Tool Username in ESOProfile'
+        if self.user:
+            try:
+                eso_profile = ESOProfile.objects.get(user=self.user)
+                eso_username = eso_profile.p2_username or 'No ESO username configured. Configure in ESO Profile'
+            except ESOProfile.DoesNotExist:
+                eso_username = 'ESO credentials not configured. Configure in ESO Profile'
+
         new_context_data = {
             'version': __version__,  # from tom_eso/__init__.py
-            'username': settings.FACILITIES['ESO']['username'],
+            'username': eso_username,
             'iframe_url': p2_tool_url,
-            'observation_form': ESOObservationForm,
+            'observation_form': self.get_form(kwargs.get('observation_type')),
         }
         # logger.debug(f'eso new_context_data: {new_context_data}')
 
@@ -272,16 +426,16 @@ class ESOFacility(BaseRoboticObservationFacility):
         # use get() to return the default form class if the observation type is not found
         return self.observation_forms.get(observation_type, ESOObservationForm)
 
-    def data_products(self):
-        pass
+    def data_products(self, observation_id, product_id=None):
+        raise NotImplementedError
 
-    def get_observation_status():
-        pass
+    def get_observation_status(self, observation_id):
+        raise NotImplementedError
 
-    def get_observation_url(self):
-        pass
+    def get_observation_url(self, observation_id):
+        raise NotImplementedError
 
-    def get_observing_sites(self):
+    def get_observing_sites(self):  # type: ignore - base class method return None, which it should not
         # see https://www.eso.org/sci/facilities/paranal/astroclimate/site.html#GeoInfo
         # I don't see an API for this info, so it's hardcoded
         # TODO: get data for all the ESO sites for production
@@ -306,18 +460,32 @@ class ESOFacility(BaseRoboticObservationFacility):
     def submit_new_observation_block(self, observation_payload):
         """
         This is called when the user clicks the Create Observation Block button.
+
+        TODO: this fuction needs error checking.
         """
         logger.debug(f'ESOFacility.submit_new_observation_block observation_payload: {observation_payload}')
         target_id = observation_payload['target_id']
         target = Target.objects.get(pk=target_id)
 
-        new_observation_block = self.eso.create_observation_block(
-            folder_id=observation_payload['params']['p2_folder_name'],
-            ob_name=observation_payload['params']['observation_block_name'],
-            target=target
-        )
-        # TODO: redirect with new observation block id in the ESO P2 Tool iframe
-        logger.debug(f'ESOFacility.submit_new_observation_block new_observation_block: {new_observation_block}')
+        # without the user and their creds in the ESOProfile we cannot access to the p2api
+        if self.user is None:
+            logger.error('Cannot submist new observation block without user: {self.user}')
+            return  # so early return
+
+        try:
+            eso_profile = ESOProfile.objects.get(user=self.user)
+            decrypted_p2_password = get_encrypted_field(self.user, eso_profile, 'p2_password')
+            eso = ESOAPI(eso_profile.p2_environment, eso_profile.p2_username, decrypted_p2_password)
+            new_observation_block = eso.create_observation_block(
+                folder_id=observation_payload['params']['p2_folder_name'],
+                ob_name=observation_payload['params']['observation_block_name'],
+                target=target
+            )
+            # TODO: redirect with new observation block id in the ESO P2 Tool iframe
+            logger.debug(f'ESOFacility.submit_new_observation_block new_observation_block: {new_observation_block}')
+        except ESOProfile.DoesNotExist:
+            # Handle the case where the user has no ESOProfile
+            logger.error(f'User {self.user} has no ESOProfile')
 
     def submit_observation(self, observation_payload):
         """For the ESO Facility we're limited to creating new observation blocks for
@@ -325,6 +493,8 @@ class ESOFacility(BaseRoboticObservationFacility):
 
         For now, the Create Observation Block button routes to here and we call the
         ESOAPI.create_observation_block() method to create the new observation block.
+
+        TODO: we should probably not be overriding this method to accomplish this!!!
         """
         # this method is really just an adaptor to call submit_new_observation_block()
         self.submit_new_observation_block(observation_payload)
