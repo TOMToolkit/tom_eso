@@ -37,7 +37,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
             attrs={
                 'hx-get': reverse_lazy('tom_eso:observing-run-folders'),  # send GET request to this URL
                 # (the view for this endpoint returns folder names for the selected observing run)
-                'hx-trigger': 'change',  # only on change - removed load trigger to avoid empty value issues
+                'hx-trigger': 'change',  # only on change - on load would be too much
                 'hx-target': '#div_id_p2_folder_name',  # replace p2_folder_name div
                 # Set loading state immediately when request starts
                 'hx-on::before-request': '''
