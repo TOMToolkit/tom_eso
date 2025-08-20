@@ -1,7 +1,7 @@
 # tom_eso
 European Southern Obervatory Facility modules for TOM Toolkit
 
-This module mainly designed to facilitate getting Target and Observation data
+This module is designed mainly to facilitate getting Target and Observation data
 from your TOM to the ESO P2 Tool (without having to re-enter it). Submitting
 observations is still expected to be done through the P2 Tool itself.
 
