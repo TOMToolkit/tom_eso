@@ -1,3 +1,22 @@
+"""
+ESO Facility Plugin for TOMToolkit
+
+This module demonstrates the pattern for user-specific credentials in TOMToolkit facilities.
+
+The forms need dynamic data (like dropdown choices) that comes from external APIs
+which require user-specific credentials. This calls for a Separation of Concerns:
+
+- **Facility**: Handles business logic (credentials, API clients, external data)
+- **Form**: Handles presentation logic (display, validation, layout)
+
+Workflow:
+1. ObservationCreateView calls facility.set_user(request.user) in dispatch()
+2. Facility.set_user() queries user credentials and sets up API clients
+3. Form receives facility instance (not user) and asks facility for data
+4. Form uses facility-provided data to populate choice fields
+
+At the moment, this pattern is followed by both tom_eso and tom_swift plugins.
+"""
 import logging
 
 from crispy_forms.layout import Layout, HTML, Submit, ButtonHolder, Div
@@ -5,7 +24,11 @@ from crispy_forms.layout import Layout, HTML, Submit, ButtonHolder, Div
 from django.urls import reverse_lazy
 from django import forms
 
-from tom_observations.facility import BaseRoboticObservationForm, BaseRoboticObservationFacility
+from tom_observations.facility import (
+    BaseRoboticObservationForm,
+    BaseRoboticObservationFacility,
+    CredentialStatus
+)
 from tom_eso import __version__
 from tom_eso.eso_api import ESOAPI
 from tom_eso.models import ESOProfile
@@ -190,38 +213,26 @@ class ESOObservationForm(BaseRoboticObservationForm):
     # 2. __init__()
 
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        facility = kwargs.pop('facility', None)
         super().__init__(*args, **kwargs)
-        self.eso = None
 
-        if user is None:
-            logger.warning('ESOObservationForm.__init__ called without user context!')
-            self.fields['p2_observing_run'].choices = [(0, 'No user context - please reload page')]
+        if facility is None:
+            logger.warning('ESOObservationForm.__init__ called without facility context!')
+            self.fields['p2_observing_run'].choices = [(0, 'No facility context - please reload page')]
             return
 
-        # Show loading message initially with animated spinner
-        self.fields['p2_observing_run'].choices = [('', '⟳ Loading ESO observing runs...')]
+        # Store facility reference for use in validation
+        self.facility = facility
 
-        try:
-            eso_profile = ESOProfile.objects.get(user=user)
-            p2_environment = eso_profile.p2_environment
-            p2_username = eso_profile.p2_username
-            p2_password = get_encrypted_field(user, eso_profile, 'p2_password')
-
-            self.eso = ESOAPI(p2_environment, p2_username, p2_password)
-            observing_run_choices = self.eso.observing_run_choices()
-
-            if not observing_run_choices:
-                self.fields['p2_observing_run'].choices = [(0, 'No observing runs available')]
-            else:
-                choices_with_empty = [('', 'Please select an Observing Run')] + observing_run_choices
-                self.fields['p2_observing_run'].choices = choices_with_empty
-
-        except ESOProfile.DoesNotExist:
+        if facility.credential_status in [CredentialStatus.USING_USER_CREDS, CredentialStatus.USING_DEFAULTS]:
+            # Get choices from facility (business logic handled there)
+            observing_run_choices = facility.get_observing_run_choices()
+            self.fields['p2_observing_run'].choices = observing_run_choices
+        else:
+            # No credentials - provide link to profile
             from django.urls import reverse
-            profile_url = reverse("user-profile")  # this is where they can add credentials
+            profile_url = reverse("user-profile")
 
-            # hijack this field to provide a link to the profile_url
             self.fields['p2_observing_run'].widget = forms.widgets.TextInput(
                 attrs={
                     'readonly': True,
@@ -231,13 +242,10 @@ class ESOObservationForm(BaseRoboticObservationForm):
             )
             self.fields['p2_observing_run'].initial = ('Click to add ESO Credentials.')
 
-            # disable the form fields until the creds are entered
+            # Disable form fields until credentials are added
             for field in self.fields:
                 self.fields[field].disabled = True
-            # but don't disable this field because we need the link to work!
             self.fields['p2_observing_run'].disabled = False
-        except Exception as ex:
-            logger.error(f'Exception getting ESOProfile data: {ex}')
 
         # This form has a self.helper: crispy_forms.helper.FormHelper attribute.
         # It is set in the BaseRoboticObservationForm class.
@@ -310,7 +318,11 @@ class ESOObservationForm(BaseRoboticObservationForm):
         and it is sufficient to update it's choices for rendering the form, but not for validation.
         That must be done on the instance that is to be validated.)
         """
-        if not self.eso:
+        # early return (of False) for things that could go wrong
+        if (not hasattr(self, "facility")
+            or not self.facility
+            or self.facility.credential_status not in
+                [CredentialStatus.USING_USER_CREDS, CredentialStatus.USING_DEFAULTS]):
             return False
 
         # extract values from the BoundFields (and use them to update the ChoiceField choices)
@@ -318,10 +330,10 @@ class ESOObservationForm(BaseRoboticObservationForm):
         p2_folder_id = int(self["p2_folder_name"].value())
         # observation_block = int(self["observation_blocks"].value())
 
-        # update the ChoiceField choices from the ESO API
+        # update the ChoiceField choices from the facility (no direct API calls here)
         # TODO: these should be cached and updated in the htmx views
-        self["p2_folder_name"].field.choices = self.eso.folder_name_choices(observing_run_id=p2_observing_run_id)
-        self["observation_blocks"].field.choices = self.eso.folder_ob_choices(p2_folder_id)
+        self["p2_folder_name"].field.choices = self.facility.get_folder_name_choices(p2_observing_run_id)
+        self["observation_blocks"].field.choices = self.facility.get_observation_block_choices(p2_folder_id)
 
         # now that the choices are updated, we are ready to validate the form
         valid = super().is_valid()
@@ -342,6 +354,129 @@ class ESOFacility(BaseRoboticObservationFacility):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.eso_api = None
+
+    def set_user(self, user):
+        """Set the user and configure ESO-specific credentials."""
+        super().set_user(user)
+        self._configure_credentials()
+
+    def _configure_credentials(self):
+        """
+        Configure ESO-specific credentials and API client.
+
+        This method implements the credential management use case:
+        - Failure Path 1: No ESOProfile → raise ImproperlyConfigured
+        - Failure Path 2: Empty credentials → fall back to settings defaults
+        - Failure Path 3: No defaults in settings → raise ImproperlyConfigured
+
+        The credential_status property tracks the current state.
+        """
+        if self.user is None:
+            logger.warning('ESOFacility._configure_credentials called with None user!')
+            self.eso_api = None
+            self.credential_status = CredentialStatus.NOT_INITIALIZED
+            return
+
+        try:
+            # Try to get user's ESOProfile
+            try:
+                eso_profile = ESOProfile.objects.get(user=self.user)
+            except ESOProfile.DoesNotExist:
+                # Failure Path 1: No profile exists
+                self._raise_no_profile_error(self.user, 'ESO')
+
+            # Get credentials from profile
+            p2_environment = eso_profile.p2_environment
+            p2_username = eso_profile.p2_username
+            p2_password = get_encrypted_field(self.user, eso_profile, 'p2_password')
+
+            # Check if credentials are empty
+            if self._is_credential_empty(p2_username) or self._is_credential_empty(p2_password):
+                # Failure Path 2: Profile exists but credentials empty
+                # Try to fall back to defaults from settings
+                logger.warning(f'ESOProfile exists but credentials empty for user {self.user.username}')
+
+                try:
+                    # Failure Path 3: Try to get defaults, may raise ImproperlyConfigured
+                    default_creds = self._get_setting_credentials(
+                        'ESO',
+                        ['p2_environment', 'p2_username', 'p2_password']
+                    )
+                    p2_environment = default_creds['p2_environment']
+                    p2_username = default_creds['p2_username']
+                    p2_password = default_creds['p2_password']
+
+                    # Successfully using defaults
+                    self.eso_api = ESOAPI(p2_environment, p2_username, p2_password)
+                    self.credential_status = CredentialStatus.USING_DEFAULTS
+                    logger.warning(
+                        f'Using default ESO credentials from settings for user {self.user.username}. '
+                        f'Configure ESOProfile for better security.'
+                    )
+                except Exception:
+                    # Failure Path 3: No defaults available
+                    self._raise_no_defaults_error(self.user, 'ESO')
+            else:
+                # Happy path: Using user credentials
+                self.eso_api = ESOAPI(p2_environment, p2_username, p2_password)
+                self.credential_status = CredentialStatus.USING_USER_CREDS
+                logger.info(f'ESOFacility initialized with user credentials for {self.user.username}')
+
+        except Exception as ex:
+            # Unexpected errors
+            logger.error(f'Unexpected exception setting up ESO API for user {self.user.username}: {ex}')
+            self.eso_api = None
+            self.credential_status = CredentialStatus.NOT_INITIALIZED
+            raise
+
+    def get_observing_run_choices(self):
+        """Get observing run choices for the current user."""
+        if (
+            self.credential_status
+            not in [CredentialStatus.USING_USER_CREDS, CredentialStatus.USING_DEFAULTS]
+            or not self.eso_api
+        ):
+            return [(0, "No ESO credentials configured")]
+
+        try:
+            observing_run_choices = self.eso_api.observing_run_choices()
+            if not observing_run_choices:
+                return [(0, 'No observing runs available')]
+            return [('', 'Please select an Observing Run')] + observing_run_choices
+        except Exception as ex:
+            logger.error(f'Error getting observing runs: {ex}')
+            return [(0, f'Error loading observing runs: {str(ex)}')]
+
+    def get_folder_name_choices(self, observing_run_id):
+        """Get folder name choices for the given observing run."""
+        if (
+            self.credential_status
+            not in [CredentialStatus.USING_USER_CREDS, CredentialStatus.USING_DEFAULTS]
+            or not self.eso_api
+        ):
+            return [(0, "No ESO credentials configured")]
+
+        try:
+            return self.eso_api.folder_name_choices(observing_run_id=observing_run_id)
+        except Exception as ex:
+            logger.error(f'Error getting folder names: {ex}')
+            return [(0, f'Error loading folders: {str(ex)}')]
+
+    def get_observation_block_choices(self, folder_id):
+        """Get observation block choices for the given folder."""
+        if (
+            self.credential_status
+            not in [CredentialStatus.USING_USER_CREDS, CredentialStatus.USING_DEFAULTS]
+            or not self.eso_api
+        ):
+            return [(0, "No ESO credentials configured")]
+
+        try:
+            return self.eso_api.folder_ob_choices(folder_id)
+        except Exception as ex:
+            logger.error(f'Error getting observation blocks: {ex}')
+            return [(0, f'Error loading observation blocks: {str(ex)}')]
 
     def get_p2_tool_url(self,
                         observation_run_id=None,
@@ -420,8 +555,8 @@ class ESOFacility(BaseRoboticObservationFacility):
     def get_form(self, observation_type):
         """Return the form class for the given observation type.
 
-        Uses the observation_forms class varialble dictionary to map observation types to form classes.
-        If the obsevation type is not found, return the ESOboservationForm class
+        Uses the observation_forms class variable dictionary to map observation types to form classes.
+        If the observation type is not found, return the ESOObservationForm class.
         """
         # use get() to return the default form class if the observation type is not found
         return self.observation_forms.get(observation_type, ESOObservationForm)
