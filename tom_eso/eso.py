@@ -214,6 +214,12 @@ class ESOObservationForm(BaseRoboticObservationForm):
 
     def __init__(self, *args, **kwargs):
         facility = kwargs.pop('facility', None)
+
+        # add settings instance to Form
+        if 'facility_settings' not in kwargs:
+            kwargs['facility_settings'] = ESOSettings()
+        self.facility_settings = kwargs.pop('facility_settings')
+
         super().__init__(*args, **kwargs)
 
         if facility is None:
@@ -340,6 +346,26 @@ class ESOObservationForm(BaseRoboticObservationForm):
         return valid
 
 
+class ESOSettings:
+    def __init__(self):
+        logger.debug('ESOSettings.__init__')
+        self.required_credentials = ['p2_username', 'p2_password', 'p2_environment']
+        # these are the credentials that we have found via ESOFacility._configure_credentials
+        self.configured_credentials = {k: None for k in self.required_credentials}
+
+    def get_unconfigured_settings(self):
+        """
+        Check that the settings for this facility are present, and return list of any required settings that are blank.
+        """
+        unconfigured_creds = [key for key in self.configured_credentials.keys() if self.configured_credentials[key] is None]
+
+        logger.debug(f'self.configured_credentials: {self.configured_credentials}')
+        logger.debug(f'self.required_credentails: {self.required_credentials}')
+        logger.debug(f'unconfigured_creds: {unconfigured_creds}')
+
+        return unconfigured_creds
+
+
 class ESOFacility(BaseRoboticObservationFacility):
     name = 'ESO'
 
@@ -353,6 +379,7 @@ class ESOFacility(BaseRoboticObservationFacility):
     }
 
     def __init__(self, *args, **kwargs):
+        self.facility_settings = ESOSettings()
         super().__init__(*args, **kwargs)
         self.eso_api = None
 
@@ -366,12 +393,13 @@ class ESOFacility(BaseRoboticObservationFacility):
         Configure ESO-specific credentials and API client.
 
         This method implements the credential management use case:
-        - Failure Path 1: No ESOProfile → raise ImproperlyConfigured
-        - Failure Path 2: Empty credentials → fall back to settings defaults
-        - Failure Path 3: No defaults in settings → raise ImproperlyConfigured
+        - If no ESOProfile exists, try to use settings defaults
+        - If ESOProfile exists, use its credentials (even if incomplete)
+        - Set configured_credentials accurately to reflect what was found
 
         The credential_status property tracks the current state.
         """
+        logger.debug('ESOFacility._configure_credentials called...')
         if self.user is None:
             logger.warning('ESOFacility._configure_credentials called with None user!')
             self.eso_api = None
@@ -382,46 +410,57 @@ class ESOFacility(BaseRoboticObservationFacility):
             # Try to get user's ESOProfile
             try:
                 eso_profile = ESOProfile.objects.get(user=self.user)
+                # Profile exists - use its credentials (even if incomplete)
+                p2_environment = eso_profile.p2_environment
+                p2_username = eso_profile.p2_username
+                p2_password = get_encrypted_field(self.user, eso_profile, 'p2_password')
+                credential_status = CredentialStatus.USING_USER_CREDS
+                logger.info(f'Using ESOProfile credentials for user {self.user.username}')
+
             except ESOProfile.DoesNotExist:
-                # Failure Path 1: No profile exists
-                self._raise_no_profile_error(self.user, 'ESO')
-
-            # Get credentials from profile
-            p2_environment = eso_profile.p2_environment
-            p2_username = eso_profile.p2_username
-            p2_password = get_encrypted_field(self.user, eso_profile, 'p2_password')
-
-            # Check if credentials are empty
-            if self._is_credential_empty(p2_username) or self._is_credential_empty(p2_password):
-                # Failure Path 2: Profile exists but credentials empty
-                # Try to fall back to defaults from settings
-                logger.warning(f'ESOProfile exists but credentials empty for user {self.user.username}')
-
+                # No profile exists - try to use settings defaults
+                logger.warning(f'No ESOProfile found for user {self.user.username}, trying settings defaults')
                 try:
-                    # Failure Path 3: Try to get defaults, may raise ImproperlyConfigured
-                    default_creds = self._get_setting_credentials(
+                    creds_from_settings = self._get_setting_credentials(
                         'ESO',
-                        ['p2_environment', 'p2_username', 'p2_password']
+                        self.facility_settings.required_credentials
                     )
-                    p2_environment = default_creds['p2_environment']
-                    p2_username = default_creds['p2_username']
-                    p2_password = default_creds['p2_password']
-
-                    # Successfully using defaults
-                    self.eso_api = ESOAPI(p2_environment, p2_username, p2_password)
-                    self.credential_status = CredentialStatus.USING_DEFAULTS
+                    p2_environment = creds_from_settings['p2_environment']
+                    p2_username = creds_from_settings['p2_username']
+                    p2_password = creds_from_settings['p2_password']
+                    credential_status = CredentialStatus.USING_DEFAULTS
                     logger.warning(
-                        f'Using default ESO credentials from settings for user {self.user.username}. '
-                        f'Configure ESOProfile for better security.'
+                        f'Using default (TOM-wide) ESO credentials from settings.FACILITIES for user {self.user.username}. '
+                        f'Create ESOProfile to enable user-specific credentials.'
                     )
-                except Exception:
-                    # Failure Path 3: No defaults available
-                    self._raise_no_defaults_error(self.user, 'ESO')
-            else:
-                # Happy path: Using user credentials
+                except Exception as ex:
+                    logger.warning(f'No defaults available: {ex}')
+                    self.eso_api = None
+                    self.credential_status = CredentialStatus.NOT_INITIALIZED
+                    return
+
+            # Initialize API and update configured credentials
+            try:
                 self.eso_api = ESOAPI(p2_environment, p2_username, p2_password)
-                self.credential_status = CredentialStatus.USING_USER_CREDS
-                logger.info(f'ESOFacility initialized with user credentials for {self.user.username}')
+                self.facility_settings.configured_credentials = {
+                    'p2_environment': p2_environment,
+                    'p2_username': p2_username,
+                    'p2_password': p2_password,
+                }
+                self.credential_status = credential_status
+                logger.debug(f'Successfully configured ESO API with credentials: {p2_environment}, {p2_username}')
+            except Exception as api_ex:
+                # Handle invalid credentials or API connection errors
+                logger.error(f'Failed to initialize ESO API for user {self.user.username}: {api_ex}')
+                self.eso_api = None
+                self.credential_status = CredentialStatus.NOT_INITIALIZED
+                # Still set configured_credentials to reflect what was attempted
+                self.facility_settings.configured_credentials = {
+                    'p2_environment': p2_environment,
+                    'p2_username': p2_username,
+                    'p2_password': p2_password,
+                }
+                return
 
         except Exception as ex:
             # Unexpected errors
