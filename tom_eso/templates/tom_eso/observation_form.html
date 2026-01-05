@@ -11,6 +11,9 @@
 <h1>Submit Request an ESO Facility for <a href="{% url 'targets:detail' pk=target.id %}">{{target.name}}</a></h1>
 
 
+{% if missing_configurations %}
+    <div class="alert alert-danger">Some {{ form.facility.value }} Facility settings ({{ missing_configurations }}) are not configured.</div>
+{% endif %}
 
 <!-- this row contains the Target data in column 1 and the Moon distance in column 2 -->
 <div class="row">
