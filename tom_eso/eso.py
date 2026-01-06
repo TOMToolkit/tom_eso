@@ -430,7 +430,7 @@ class ESOFacility(BaseRoboticObservationFacility):
                     p2_password = creds_from_settings['p2_password']
                     credential_status = CredentialStatus.USING_DEFAULTS
                     logger.warning(
-                        f'Using default (TOM-wide) ESO credentials from settings.FACILITIES for user {self.user.username}. '
+                        f'Using default ESO credentials from settings.FACILITIES for user {self.user.username}. '
                         f'Create/Update ESOProfile to enable user-specific credentials.'
                     )
                 except Exception as ex:
