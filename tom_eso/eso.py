@@ -337,15 +337,16 @@ class ESOSettings:
         logger.debug('ESOSettings.__init__')
         self.required_credentials = ['p2_username', 'p2_password', 'p2_environment']
         # these are the credentials that we have found via ESOFacility._configure_credentials
-        self.configured_credentials = {k: None for k in self.required_credentials}
+        self.profile_credentials = {k: None for k in self.required_credentials}
 
     def get_unconfigured_settings(self):
         """
         Check that the settings for this facility are present, and return list of any required settings that are blank.
         """
-        unconfigured_creds = [key for key in self.configured_credentials.keys() if self.configured_credentials[key] is None]
+        # create a list of the keys that are truthy-false. (i.e. eval to False)
+        unconfigured_creds = [key for key in self.profile_credentials.keys() if not self.profile_credentials[key]]
 
-        logger.debug(f'self.configured_credentials: {self.configured_credentials}')
+        logger.debug(f'self.configured_credentials: {self.profile_credentials}')
         logger.debug(f'self.required_credentails: {self.required_credentials}')
         logger.debug(f'unconfigured_creds: {unconfigured_creds}')
 
@@ -389,19 +390,32 @@ class ESOFacility(BaseRoboticObservationFacility):
         if self.user is None:
             logger.warning('ESOFacility._configure_credentials called with None user!')
             self.eso_api = None
-            self.credential_status = CredentialStatus.NOT_INITIALIZED
+            self.credential_status = CredentialStatus.NOT_INITIALIZED  # set_user() hasn't been called yet
             return
 
         try:
             # Try to get user's ESOProfile
             try:
                 eso_profile = ESOProfile.objects.get(user=self.user)
-                # Profile exists - use its credentials (even if incomplete)
+                # Profile exists - use its credentials (but not if incomplete)
                 p2_environment = eso_profile.p2_environment
                 p2_username = eso_profile.p2_username
                 p2_password = get_encrypted_field(self.user, eso_profile, 'p2_password')
-                credential_status = CredentialStatus.USING_USER_CREDS
-                logger.info(f'Using ESOProfile credentials for user {self.user.username}')
+
+                # set configured_credentials to reflect what we found in ESOProfile
+                self.facility_settings.profile_credentials = {
+                    'p2_environment': p2_environment,
+                    'p2_username': p2_username,
+                    'p2_password': p2_password,
+                }
+
+                # check for missing creds in ESOProfile
+                if not self.facility_settings.get_unconfigured_settings():
+                    credential_status = CredentialStatus.USING_USER_CREDS
+                    logger.info(f'Using ESOProfile credentials for user {self.user.username}')
+                else:
+                    # if there are missing creds, act like the ESOProfile doesn't exist
+                    raise ESOProfile.DoesNotExist
 
             except ESOProfile.DoesNotExist:
                 # No profile exists - try to use settings defaults
@@ -417,7 +431,7 @@ class ESOFacility(BaseRoboticObservationFacility):
                     credential_status = CredentialStatus.USING_DEFAULTS
                     logger.warning(
                         f'Using default (TOM-wide) ESO credentials from settings.FACILITIES for user {self.user.username}. '
-                        f'Create ESOProfile to enable user-specific credentials.'
+                        f'Create/Update ESOProfile to enable user-specific credentials.'
                     )
                 except Exception as ex:
                     logger.warning(f'No defaults available: {ex}')
@@ -427,25 +441,15 @@ class ESOFacility(BaseRoboticObservationFacility):
 
             # Initialize API and update configured credentials
             try:
+                # now, all creds should be present from ESOProfile or settings (might not be valid)
                 self.eso_api = ESOAPI(p2_environment, p2_username, p2_password)
-                self.facility_settings.configured_credentials = {
-                    'p2_environment': p2_environment,
-                    'p2_username': p2_username,
-                    'p2_password': p2_password,
-                }
                 self.credential_status = credential_status
                 logger.debug(f'Successfully configured ESO API with credentials: {p2_environment}, {p2_username}')
             except Exception as api_ex:
                 # Handle invalid credentials or API connection errors
                 logger.error(f'Failed to initialize ESO API for user {self.user.username}: {api_ex}')
                 self.eso_api = None
-                self.credential_status = CredentialStatus.NOT_INITIALIZED
-                # Still set configured_credentials to reflect what was attempted
-                self.facility_settings.configured_credentials = {
-                    'p2_environment': p2_environment,
-                    'p2_username': p2_username,
-                    'p2_password': p2_password,
-                }
+                self.credential_status = CredentialStatus.VALIDATION_FAILED_AUTH
                 return
 
         except Exception as ex:
@@ -557,19 +561,24 @@ class ESOFacility(BaseRoboticObservationFacility):
         # logger.debug(f'ESOFacility.get_facility_context_data facility_context_data: {facility_context_data}')
 
         # Get ESO username from ESOProfile instead of Django username
-        eso_username = 'Configure ESO P2 Tool Username in ESOProfile'
+        eso_username = 'None. Please check ESO credentials.'
         if self.user:
-            try:
+            if self.credential_status == CredentialStatus.USING_USER_CREDS:
                 eso_profile = ESOProfile.objects.get(user=self.user)
-                eso_username = eso_profile.p2_username or 'No ESO username configured. Configure in ESO Profile'
-            except ESOProfile.DoesNotExist:
-                eso_username = 'ESO credentials not configured. Configure in ESO Profile'
+                eso_username = eso_profile.p2_username
+            elif self.credential_status == CredentialStatus.USING_DEFAULTS:
+                creds_from_settings = self._get_setting_credentials(
+                    'ESO',
+                    self.facility_settings.required_credentials
+                )
+                eso_username = creds_from_settings['p2_username']
 
         new_context_data = {
             'version': __version__,  # from tom_eso/__init__.py
             'username': eso_username,
             'iframe_url': p2_tool_url,
             'observation_form': self.get_form(kwargs.get('observation_type')),
+            'credential_status': self.credential_status,
         }
         # logger.debug(f'eso new_context_data: {new_context_data}')
 
