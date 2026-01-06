@@ -37,7 +37,7 @@ from tom_common.session_utils import get_encrypted_field
 
 
 logger = logging.getLogger(__name__)
-#logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
 
 class ESOObservationForm(BaseRoboticObservationForm):
