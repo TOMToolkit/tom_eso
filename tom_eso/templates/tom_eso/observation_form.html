@@ -1,5 +1,5 @@
 {% extends 'tom_common/base.html' %}
-{% load bootstrap4 static crispy_forms_tags observation_extras targets_extras %}
+{% load bootstrap4 static crispy_forms_tags observation_extras targets_extras tom_common_extras %}
 {% block title %}Submit Observation{% endblock title %}
 {% block additional_css %}
 <link rel="stylesheet" href="{% static 'tom_common/css/main.css' %}">
@@ -12,7 +12,23 @@
 
 
 {% if missing_configurations %}
-    <div class="alert alert-danger">Some {{ form.facility.value }} Facility settings ({{ missing_configurations }}) are not configured.</div>
+    <div class="alert alert-danger">Some {{ form.facility.value }} Facility settings ({{ missing_configurations }}) are not configured.
+    You can update your ESO Profile <a href="{% url 'user-profile' %}">here</a>.
+    </div>
+{% endif %}
+
+{% if credential_status.value == "validation_failed_auth" %}
+    <div class="alert alert-danger">Unable to login to {{ form.facility.value }} Facility.
+    Please check your credentials in your ESO Profile <a href="{% url 'user-profile' %}">here</a>
+    or contact your TOM administrator about the default {{ form.facility.value }} Facility credential settings (in settings.FACILITIES).
+    </div>
+{% endif %}
+
+{% if credential_status.value == "using_defaults" %}
+    <div class="alert alert-warning">Unable find User credentials for {{user}}. Using {% tom_name %} default credentials
+    from settings.FACILITIES for {{ form.facility.value }} Facility.
+    You can update your ESO Profile <a href="{% url 'user-profile' %}">here</a>.
+    </div>
 {% endif %}
 
 <!-- this row contains the Target data in column 1 and the Moon distance in column 2 -->
