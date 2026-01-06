@@ -66,4 +66,4 @@ FACILITIES = {
         },
     }
 ```
-Note: The user specific credentials will always take precendent over these TOM-wide defaults.
+Note: The user specific credentials will always take precendence over these TOM-wide defaults.
