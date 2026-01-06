@@ -1,21 +1,26 @@
-[tool.poetry]
+[project]
 name = "tom-eso"
 # this version is a placeholder: version supplied by poetry-dynamic-versioning
-version = "0.0.0"
 description = "TOM Toolkit Facility module for the European Southern Observatory telescopes"
-authors = ["Lindy Lindstrom <llindstrom@lco.global>"]
+authors = [
+    {name = "Lindy Lindstrom", email = "llindstrom@lco.global"}
+]
 license = "GPL-3.0-or-later"
 readme = "README.md"
 packages = [{include = "tom_eso"}]
+dynamic = ["version"]
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "tomtoolkit>=2.22.0,<3",
+    "p2api>=1,<2",
+    "phase1api>=0,<2",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9.0,<3.13"
-tomtoolkit = ">=2.22"
-p2api = "~1"
-phase1api = "~0"
+[tool.poetry]
+version = "0.0.0" # version supplied by poetry-dynamic-versioning
 
 [tool.poetry.group.lint.dependencies]
-flake8 = "~7.3"
+flake8 = ">=6.0,<7.4"
 
 [tool.poetry-dynamic-versioning]
 enable = true
