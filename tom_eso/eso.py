@@ -52,7 +52,7 @@ class ESOObservationForm(BaseRoboticObservationForm):
     p2_observing_run = forms.TypedChoiceField(
         label='Observing Run',
         coerce=int,
-        choices=[],  # populated in __init__ with user credentials
+        choices=[(0, 'Please set your ESO Credentials')],  # populated in __init__ with user credentials
         required=True,
         # Select is the default widget for a ChoiceField, but we need to set htmx attributes.
         widget=forms.Select(
@@ -235,23 +235,9 @@ class ESOObservationForm(BaseRoboticObservationForm):
             observing_run_choices = facility.get_observing_run_choices()
             self.fields['p2_observing_run'].choices = observing_run_choices
         else:
-            # No credentials - provide link to profile
-            from django.urls import reverse
-            profile_url = reverse("user-profile")
-
-            self.fields['p2_observing_run'].widget = forms.widgets.TextInput(
-                attrs={
-                    'readonly': True,
-                    'style': 'border:none; background:none; color:red; text-decoration:underline; cursor:pointer;',
-                    'onclick': f"window.location.href='{profile_url}'"
-                }
-            )
-            self.fields['p2_observing_run'].initial = ('Click to add ESO Credentials.')
-
             # Disable form fields until credentials are added
             for field in self.fields:
                 self.fields[field].disabled = True
-            self.fields['p2_observing_run'].disabled = False
 
         # This form has a self.helper: crispy_forms.helper.FormHelper attribute.
         # It is set in the BaseRoboticObservationForm class.
