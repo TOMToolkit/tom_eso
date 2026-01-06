@@ -44,8 +44,26 @@ You'll want to update your `pyproject.toml` or `requirements.txt` file as well.
     ```
 
 
-## Configuration
+## Configuration Options
 
 After installation, each user will have an `ESOProfile` card in their TOM user profile where they can
 enter their ESO P2 Tool `username` and `password` and set the ESO environment to `Demo`, `Production`,
 or `Production La Silla`.
+
+If a TOM admin wants to have a single default set of ESO credentials accessible by all of their TOM's users, they can 
+include the following to thier `settings.py`:
+
+```python
+FACILITIES = {
+        ...
+        # defaults set from ESO p2 API Tutorial
+        # https://www.eso.org/sci/observing/phase2/p2intro/Phase2API/api--python-programming-tutorial.html
+        # You should have your own credentials.
+        'ESO': {
+            'environment': os.getenv('ESO_ENVIRONMENT', 'demo'),
+            'username': os.getenv('ESO_USERNAME', '52052'),
+            'password': os.getenv('ESO_PASSWORD', 'tutorial'),
+        },
+    }
+```
+Note: The user specific credentials will always take precendent over these TOM-wide defaults.
