@@ -11,7 +11,7 @@ packages = [{include = "tom_eso"}]
 dynamic = ["version"]
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "tomtoolkit>=2.22.0,<3",
+    "tomtoolkit>=2.29.0,<3",
     "p2api>=1,<2",
     "phase1api>=0,<2",
 ]
