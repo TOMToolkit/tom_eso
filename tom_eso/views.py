@@ -7,99 +7,188 @@ from django.urls import reverse_lazy
 
 from crispy_forms.templatetags.crispy_forms_filters import as_crispy_field
 
-from tom_eso.eso_api import ESOAPI
 from tom_eso.eso import ESOObservationForm, ESOFacility
 from tom_eso.models import ESOProfile
 from tom_eso.forms import ESOProfileForm
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def folders_for_observing_run(request):
-    """Return an HTTPResponse which updates the Folder choices for the selected Observing Run.
-
-    Calls to this View are triggered by a change of the ``p2_observing_run`` ChoiceField,
-    as specified by the htmx attributes on its <select> element. See the ESOFacility,
-    where that ChoiceField is defined.
-
-    The ``p2_folder_name`` ChoiceField's ``choices`` are updated with the folder names
-    for the selected Observing Run.  and the <select> element is returned as an
-    <select> HTML element. Function view for the htmx GET request to update the observing run field.
-
-    The ``observing_run_id`` of the selected ``p2_observing_run`` is passed as a URL
-    parameter and is thus available from the request.GET QueryDict.
     """
-    # extract the observing run id from the request.GET QueryDict
-    observing_run_id = int(request.GET['p2_observing_run'])
+    HTMX endpoint that updates folder choices when an observing run is selected.
 
-    # Get the folder name choices for the selected observing run
-    # NOTE: this is a potentially slow API call
-    # TODO: considing caching the results
-    folder_name_choices = ESOAPI().folder_name_choices(observing_run_id)
+    HTMX PATTERN EXPLANATION:
+    ========================
+    This is an HTMX "partial view" that returns HTML fragments, not full pages.
 
-    form = ESOObservationForm()  # instantiate the UNBOUND form
-    form.fields['p2_folder_name'].choices = folder_name_choices  # update the choices of the UNBOUND form
+    1. USER INTERACTION: User selects an observing run from dropdown
+    2. HTMX TRIGGER: Form field has hx-get="/eso/observing-run-folders/" attribute
+    3. THIS VIEW: Processes the request and returns updated HTML for folder dropdown
+    4. HTMX SWAP: Replaces the folder dropdown in the DOM with the returned HTML
 
-    # get the HTML for the updated ChoiceField that will update the p2_folder_name in the DOM
+    DJANGO FORM RENDERING:
+    =====================
+    We create an unbound Django form solely for field rendering purposes:
+    - Form validation is NOT needed (this is just for display)
+    - We manually populate the choices based on external API data
+    - as_crispy_field() renders the field as Bootstrap-styled HTML
+    - The HTML fragment is returned and inserted into the DOM by HTMX
+
+    FACILITY PATTERN:
+    ================
+    Instead of duplicating credential logic, we use the facility to handle
+    business concerns (API setup, credential management) while the view
+    handles only presentation concerns (form rendering, HTTP responses).
+
+    :param request: HTTP request with p2_observing_run parameter
+    :return: HTTPResponse containing HTML for updated folder dropdown
+    """
+    # Validate required GET parameter
+    if 'p2_observing_run' not in request.GET:
+        logger.error(f'Missing p2_observing_run parameter in request: {request.GET}')
+        # Return empty choices with facility context
+        facility = ESOFacility()
+        facility.set_user(request.user)
+        form = ESOObservationForm(facility=facility)
+        field_html = as_crispy_field(form['p2_folder_name'])
+        return HttpResponse(field_html)
+
+    try:
+        # Extract and validate observing run ID
+        observing_run_id = int(request.GET['p2_observing_run'])
+        # Skip processing if it's the default "Please select" value
+        if observing_run_id == 0:
+            facility = ESOFacility()
+            facility.set_user(request.user)
+            form = ESOObservationForm(facility=facility)
+            field_html = as_crispy_field(form['p2_folder_name'])
+            return HttpResponse(field_html)
+    except (ValueError, TypeError):
+        logger.error(f'Invalid p2_observing_run value: {request.GET.get("p2_observing_run")}')
+        facility = ESOFacility()
+        facility.set_user(request.user)
+        form = ESOObservationForm(facility=facility)
+        field_html = as_crispy_field(form['p2_folder_name'])
+        return HttpResponse(field_html)
+
+    # Use facility to get folder choices (eliminates credential duplication)
+    facility = ESOFacility()
+    facility.set_user(request.user)
+    folder_name_choices = facility.get_folder_name_choices(observing_run_id)
+
+    # Create form with facility context and update choices
+    form = ESOObservationForm(facility=facility)
+    form.fields['p2_folder_name'].choices = folder_name_choices
+
+    # Render field as HTML fragment for HTMX swap
     field_html = as_crispy_field(form['p2_folder_name'])
     return HttpResponse(field_html)
 
 
 def observation_blocks_for_folder(request):
-    """Return an HTTPResponse which updates the Observation Blocks choices for the selected Folder.
-
-    Calls to this View are triggered by a change of the ``p2_folder_name`` ChoiceField,
-    as specified by the htmx attributes on its <select> element. See the ESOFacility,
-    where that ChoiceField is defined.
-
-    The ``folder_items`` MultipleChoiceField's ``choices`` are updated with the folder items
-    for the selected Folder, and the <select> element is returned as an <select> HTML element.
     """
-    # extract the folder id from the request.GET QueryDict
+    HTMX endpoint that updates observation block choices when a folder is selected.
+
+    This follows the same pattern as folders_for_observing_run():
+    1. User selects a folder from the p2_folder_name dropdown
+    2. HTMX sends GET request with folder ID to this endpoint
+    3. View uses facility to get observation blocks for that folder
+    4. Returns HTML fragment for the observation_blocks dropdown
+    5. HTMX replaces the observation blocks dropdown in the DOM
+
+    The facility pattern eliminates credential duplication - all ESO API setup
+    and authentication is handled by ESOFacility.set_user().
+
+    :param request: HTTP request with p2_folder_name parameter
+    :return: HTTPResponse containing HTML for updated observation blocks dropdown
+    """
+    # Validate required GET parameter
+    if 'p2_folder_name' not in request.GET:
+        logger.error(f'Missing p2_folder_name parameter in request: {request.GET}')
+        facility = ESOFacility()
+        facility.set_user(request.user)
+        form = ESOObservationForm(facility=facility)
+        field_html = as_crispy_field(form['observation_blocks'])
+        return HttpResponse(field_html)
+
     try:
+        # Extract and validate folder ID
         folder_id = int(request.GET['p2_folder_name'])
-    except ValueError as e:
+    except (ValueError, TypeError):
         logger.error(f'folder_id is not an integer: {request.GET["p2_folder_name"]}')
         for key, value in request.GET.items():
             logger.error(f'{key}: {value}')
-        folder_id = 0
-        raise e  # re-raise the exception
+        facility = ESOFacility()
+        facility.set_user(request.user)
+        form = ESOObservationForm(facility=facility)
+        field_html = as_crispy_field(form['observation_blocks'])
+        return HttpResponse(field_html)
 
-    # Get the observation_blocks in the selected folder
-    observation_block_choices = ESOAPI().folder_ob_choices(folder_id)
+    # Use facility to get observation block choices
+    facility = ESOFacility()
+    facility.set_user(request.user)
+    observation_block_choices = facility.get_observation_block_choices(folder_id)
 
-    form = ESOObservationForm()  # instantiate the UNBOUND form
-    form.fields['observation_blocks'].choices = observation_block_choices  # update the choices of the UNBOUND form
+    # Create form with facility context and update choices
+    form = ESOObservationForm(facility=facility)
+    form.fields['observation_blocks'].choices = observation_block_choices
 
-    # now render the field as HTM and return it in the HTTPResponse
+    # Render field as HTML fragment for HTMX swap
     field_html = as_crispy_field(form['observation_blocks'])
     return HttpResponse(field_html)
 
 
 def show_observation_block(request):
-    """When a new observation block is created, this View updates the ESO P2 tool iframe
-    to show the new observation block.
     """
+    HTMX endpoint that updates the ESO P2 Tool iframe when an observation block is selected.
+
+    This is a third type of HTMX interaction - instead of updating form fields,
+    it updates an iframe's src attribute to show the selected observation block
+    in the ESO Phase 2 Tool.
+
+    HTMX IFRAME PATTERN:
+    ===================
+    1. User selects an observation block from dropdown
+    2. HTMX sends GET request with observation block ID
+    3. View constructs ESO P2 Tool URL for that observation block
+    4. Returns complete <iframe> element with new src URL
+    5. HTMX replaces the entire iframe element (hx-swap="outerHTML")
+
+    This demonstrates facility usage for business logic (URL construction)
+    while keeping the view focused on presentation (HTML generation).
+
+    :param request: HTTP request with observation_blocks parameter
+    :return: HTTPResponse containing iframe HTML element
+    """
+    # Validate that we have the required GET parameter
+    if 'observation_blocks' not in request.GET:
+        logger.error(f'Missing observation_blocks parameter in request: {request.GET}')
+        # Return empty iframe if parameter is missing
+        html = '<iframe id="id_eso_p2_tool_iframe" height="100%" width="100%" src="about:blank"></iframe>'
+        return HttpResponse(html)
+
     # 1. extract the observation block id from the request.GET QueryDict
     # (this is the value associated with the choice in the MultipleChoiceField.choices)
     try:
         observation_block_id = int(request.GET['observation_blocks'])
-    except ValueError as e:
+    except (ValueError, TypeError):
         logger.error(f'ob_id is not an integer: {request.GET["observation_blocks"]}')
         for key, value in request.GET.items():
             logger.error(f'{key}: {value}')
-        observation_block_id = 0
-        raise e  # re-raise the exception
+        # Return error iframe if parameter is invalid
+        html = '<iframe id="id_eso_p2_tool_iframe" height="100%" width="100%" src="about:blank"></iframe>'
+        return HttpResponse(html)
 
     # get the ESO P2 tool URL for this observation block
-    iframe_url = ESOFacility().get_p2_tool_url(observation_block_id=observation_block_id)
+    # Create facility instance with user context
+    facility = ESOFacility()
+    facility.set_user(request.user)
+    iframe_url = facility.get_p2_tool_url(observation_block_id=observation_block_id)
 
-    # replace the hx-target div with the iframe pointed to the new observation block
-    html = (f'<div id="div_id_eso_p2_tool_iframe" style="height:800px;">'
-            f'<iframe id="id_eso_p2_tool_iframe" height=100% width="100%" src="{iframe_url}">'
-            f'</iframe></div>')
+    # return just the iframe element with the new URL
+    html = f'<iframe id="id_eso_p2_tool_iframe" height="100%" width="100%" src="{iframe_url}"></iframe>'
     return HttpResponse(html)
 
 
