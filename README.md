@@ -1,5 +1,7 @@
 # tom_eso
-European Southern Obervatory Facility modules for TOM Toolkit
+European Southern Obervatory Facility module for TOM Toolkit
+
+NOTE: This TOM Toolkit facility module is in the prototype stage. Any type of feedback is greatly appreciated. Please feel free to create an Issue.
 
 This module is designed mainly to facilitate getting Target and Observation data
 from your TOM to the ESO P2 Tool (without having to re-enter it). Submitting
