@@ -92,6 +92,9 @@ docs/_build/
 .vscode/
 *.code-workspace
 
+# emacs
+*~
+
 # PyBuilder
 target/
 
