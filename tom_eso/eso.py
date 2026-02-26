@@ -387,7 +387,7 @@ class ESOFacility(BaseRoboticObservationFacility):
         The credential_status property tracks the current state.
         """
         logger.debug('ESOFacility._configure_credentials called...')
-        if self.user is None:
+        if self.user is None or not self.user.is_authenticated:
             logger.warning('ESOFacility._configure_credentials called with None user!')
             self.eso_api = None
             self.credential_status = CredentialStatus.NOT_INITIALIZED  # set_user() hasn't been called yet
