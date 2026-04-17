@@ -624,7 +624,7 @@ class ESOFacility(BaseRoboticObservationFacility):
         }
 
     def get_terminal_observing_states(self):
-        pass
+        return []
 
     def submit_new_observation_block(self, observation_payload):
         """
