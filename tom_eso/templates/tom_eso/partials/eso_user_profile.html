@@ -20,7 +20,21 @@
             {% for field_data in profile_data_list %}
                 {% if field_data.value %}
                     <dt class="col-sm-6">{{ field_data.label }}</dt>
-                    <dd class="col-sm-6">{{ field_data.value }}</dd>
+                    <dd class="col-sm-6">
+                        {% if field_data.is_password %}
+                            <input
+                                type="password"
+                                readonly
+                                value="{{ field_data.value }}"
+                                title="Click to reveal"
+                                class="form-control-plaintext p-0"
+                                style="cursor:pointer;"
+                                onclick="this.type = this.type === 'password' ? 'text' : 'password'"
+                            />
+                        {% else %}
+                            {{ field_data.value }}
+                        {% endif %}
+                    </dd>
                 {% endif %}
                 {% empty %}
                     <p>No ESO Profile items yet for this user.</p>

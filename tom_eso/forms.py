@@ -12,7 +12,8 @@ class ESOProfileForm(forms.ModelForm):
     p2_password = forms.CharField(
         required=False,
         label="P2 password",
-        help_text="Enter your Phase 2 Tool password. Leave blank to keep unchanged."
+        help_text="Enter your Phase 2 Tool password. Leave blank to keep unchanged.",
+        widget=forms.PasswordInput(render_value=True)
     )
 
     def __init__(self, *args, **kwargs):

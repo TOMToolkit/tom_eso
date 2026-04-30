@@ -56,6 +56,8 @@ def eso_profile_data(user) -> dict:
     if decrypted_password is None:
         password_value = "[Password not available]"
 
-    profile_data_list.append({'label': password_label, 'value': password_value})
+    profile_data_list.append(
+        {"label": password_label, "value": password_value, "is_password": True}
+    )
 
     return {'user': user, 'eso_profile': profile, 'profile_data_list': profile_data_list}
