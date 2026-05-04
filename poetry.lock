@@ -1851,14 +1851,14 @@ test = ["pytest", "tornado (>=4.5)", "typeguard"]
 
 [[package]]
 name = "tomtoolkit"
-version = "2.31.7"
+version = "2.32.1"
 description = "TOM Toolkit and base modules"
 optional = false
 python-versions = "<3.14,>=3.10.0"
 groups = ["main"]
 files = [
-    {file = "tomtoolkit-2.31.7-py3-none-any.whl", hash = "sha256:802c2fba4f70b9daea68d644975b5faec3e4135594bf1529c43849dc1e0b22d6"},
-    {file = "tomtoolkit-2.31.7.tar.gz", hash = "sha256:b8cee8c4c97e6a078a24084e4b4d520afc76b15f5516261250dcdd2f083e7033"},
+    {file = "tomtoolkit-2.32.1-py3-none-any.whl", hash = "sha256:8310c45e0d9b47e2b99d90ab81046c21b9caada000c8a2aa31751f17619a3a07"},
+    {file = "tomtoolkit-2.32.1.tar.gz", hash = "sha256:c1bcade5e49505bae63eb4d70adedd827aad03ac66e283fd03fcc15ce843dc3b"},
 ]
 
 [package.dependencies]
@@ -1969,4 +1969,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "03fefa7a1e00282428939622b8ebc78120e1a78c3c044a9d4e17a44c551e4f2f"
+content-hash = "a87a40a8a1719982ef0128f0362396ff2ca6510895d6bb830b04d61d8ebc4bf8"
