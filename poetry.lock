@@ -1257,14 +1257,14 @@ files = [
 
 [[package]]
 name = "p2api"
-version = "1.0.10"
+version = "1.1.9"
 description = "Binding for the ESO phase 2 programmatic API"
 optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "p2api-1.0.10-py2.py3-none-any.whl", hash = "sha256:0d1d1edfbbc9202174147fa34117522db6c27af4b4d3e86adad7458f2df6965b"},
-    {file = "p2api-1.0.10.tar.gz", hash = "sha256:9d9d41d978fb5143c9eb1e7119bd8bd7ff1c0f74b267d2fef425e59c717b35ef"},
+    {file = "p2api-1.1.9-py2.py3-none-any.whl", hash = "sha256:924493cf9c52f3b717ec56768d110f5a97d0918f934b9d98f64b54e487102ac7"},
+    {file = "p2api-1.1.9.tar.gz", hash = "sha256:024966f21b1a66ba51a08fd4084ce253139ace6ed3649ea778af9229f90aa80a"},
 ]
 
 [package.dependencies]
@@ -1969,4 +1969,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "03fefa7a1e00282428939622b8ebc78120e1a78c3c044a9d4e17a44c551e4f2f"
+content-hash = "04a1481c3ff3919d84868743163074d6190a910a6ba6f0da39d47bbecd452d69"
