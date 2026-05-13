@@ -22,15 +22,17 @@
                     <dt class="col-sm-6">{{ field_data.label }}</dt>
                     <dd class="col-sm-6">
                         {% if field_data.is_password %}
-                            <input
-                                type="password"
-                                readonly
-                                value="{{ field_data.value }}"
-                                title="Click to reveal"
-                                class="form-control-plaintext p-0"
-                                style="cursor:pointer;"
-                                onclick="this.type = this.type === 'password' ? 'text' : 'password'"
-                            />
+                            <div style="cursor:pointer;"
+                                 title="Click to reveal"
+                                 onclick="var i=this.querySelector('input'); i.type = i.type === 'password' ? 'text':'password';">
+                                <input
+                                    type="password"
+                                    readonly
+                                    value="{{ field_data.value }}"
+                                    class="form-control-plaintext p-0"
+                                    style="display:inline; width:auto; cursor:pointer;"
+                                /> <i class="fa fa-eye"></i>
+                            </div>
                         {% else %}
                             {{ field_data.value }}
                         {% endif %}
