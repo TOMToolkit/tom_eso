@@ -13,14 +13,20 @@
     </div>
     <div class="card-body">
         <p>
-            ESO P2 Tool Configuraton and Credentials
+            ESO P2 Tool Configuration and Credentials
         </p>
         <hr />
         <dl class="row">
             {% for field_data in profile_data_list %}
                 {% if field_data.value %}
                     <dt class="col-sm-6">{{ field_data.label }}</dt>
-                    <dd class="col-sm-6">{{ field_data.value }}</dd>
+                    <dd class="col-sm-6">
+                        {% if field_data.is_password %}
+                           {% include 'tom_common/partials/revealable_password_input.html' with value=field_data.value %}
+                        {% else %}
+                            {{ field_data.value }}
+                        {% endif %}
+                    </dd>
                 {% endif %}
                 {% empty %}
                     <p>No ESO Profile items yet for this user.</p>

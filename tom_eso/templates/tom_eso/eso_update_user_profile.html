@@ -15,3 +15,10 @@
     </form>
 </div>
 {% endblock %}
+{% block extra_javascript %}
+<script type="text/javascript">
+document.getElementById('id_p2_password').addEventListener('focus', function() {
+  this.value = '';
+});
+</script>
+{% endblock %}
