@@ -9,8 +9,6 @@ from crispy_forms.templatetags.crispy_forms_filters import as_crispy_field
 
 from tom_eso.eso import ESOObservationForm, ESOFacility
 from tom_eso.models import ESOProfile
-from tom_eso.forms import ESOProfileForm
-
 
 logger = logging.getLogger(__name__)
 
@@ -205,17 +203,8 @@ class ProfileUpdateView(UpdateView):
     ``tom_base/tom_common/templatetags/user_extras.py::show_app_profiles``).
     """
     model = ESOProfile
+    fields = ['p2_environment', 'p2_username', 'p2_password']
     template_name = 'tom_eso/eso_update_user_profile.html'
-
-    # we need a custom form class to handle the encrypted field
-    form_class = ESOProfileForm
-
-    def get_form_kwargs(self):
-        """Extend the UpdateView.get_form_kwargs to pass the logged-in User to the form
-        """
-        kwargs = super().get_form_kwargs()
-        kwargs['user'] = self.request.user
-        return kwargs
 
     def get_success_url(self):
         return reverse_lazy('user-profile')
