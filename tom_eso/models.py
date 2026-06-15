@@ -36,7 +36,7 @@ class ESOProfile(models.Model):
     (see `tom_eso/tom_eso/templates/tom_eso/partials/eso_user_partial.html`)
 
     This model contains an encrypted property to hold the User's Phase 2 password.
-    To learn more about encrypted fields see 
+    To learn more about encrypted fields see
     https://tom-toolkit.readthedocs.io/en/stable/customization/encrypted_model_fields.html
     """
 
