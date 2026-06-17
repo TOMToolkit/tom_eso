@@ -2,11 +2,8 @@ import logging
 
 from django import template
 
-from tom_common.session_utils import get_encrypted_field
-
 from tom_eso.models import ESOProfile
 # Import the form to consistently get the label for the password field.
-from tom_eso.forms import ESOProfileForm
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -49,8 +46,8 @@ def eso_profile_data(user) -> dict:
         })
 
     # Handle the special case of the encrypted password field.
-    decrypted_password = get_encrypted_field(user, profile, 'p2_password')
-    password_label = ESOProfileForm.base_fields['p2_password'].label or 'P2 Password'
+    decrypted_password = profile.p2_password
+    password_label = 'P2 Password'
 
     password_value = decrypted_password
     if decrypted_password is None:

@@ -33,8 +33,6 @@ from tom_eso import __version__
 from tom_eso.eso_api import ESOAPI
 from tom_eso.models import ESOProfile
 from tom_targets.models import Target
-from tom_common.session_utils import get_encrypted_field
-
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -400,7 +398,7 @@ class ESOFacility(BaseRoboticObservationFacility):
                 # Profile exists - use its credentials (but not if incomplete)
                 p2_environment = eso_profile.p2_environment
                 p2_username = eso_profile.p2_username
-                p2_password = get_encrypted_field(self.user, eso_profile, 'p2_password')
+                p2_password = eso_profile.p2_password
 
                 # set configured_credentials to reflect what we found in ESOProfile
                 self.facility_settings.profile_credentials = {
@@ -643,7 +641,7 @@ class ESOFacility(BaseRoboticObservationFacility):
 
         try:
             eso_profile = ESOProfile.objects.get(user=self.user)
-            decrypted_p2_password = get_encrypted_field(self.user, eso_profile, 'p2_password')
+            decrypted_p2_password = eso_profile.p2_password
             eso = ESOAPI(eso_profile.p2_environment, eso_profile.p2_username, decrypted_p2_password)
             new_observation_block = eso.create_observation_block(
                 folder_id=observation_payload['params']['p2_folder_name'],
