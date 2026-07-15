@@ -13,7 +13,7 @@ requires-python = ">=3.10,<3.13"
 dependencies = [
     "tomtoolkit>=3.0.0a10,<4",
     "p2api>=1,<2",
-    "phase1api>=0,<2",
+    "phase1api>=0.0.3,<2",
 ]
 
 [tool.poetry]
